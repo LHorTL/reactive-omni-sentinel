@@ -1,0 +1,30 @@
+{
+  "name": "reactive-omni-sentinel",
+  "version": "1.0.0",
+  "description": "OmniGuard — Sub-Second Cross-Chain Liquidation Shield & Automated Circuit Breaker built natively for Reactive Omni (Base Sepolia + Reactive Lasna)",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:verbose": "hardhat test --show-stack-traces",
+    "wallet:new": "node scripts/generate-deployer.mjs",
+    "faucet:bridge": "node scripts/bridge-lreact.mjs",
+    "deploy:local": "hardhat run scripts/deploy-local.js",
+    "deploy:live": "node scripts/deploy-live.mjs",
+    "trigger:live": "node scripts/trigger-live-loop.mjs",
+    "status:live": "node scripts/check-live-status.mjs",
+    "web:install": "npm --prefix web install",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "e2e": "python scripts/e2e_smoke.py"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.18"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.1.0",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.5"
+  }
+}

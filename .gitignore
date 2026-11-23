@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+web/node_modules/
+
+# Build & Hardhat outputs
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+web/dist/
+
+# Secrets & local environment
+.env
+.env.*
+!.env.example
+*.pem
+*_key
+*.key
+.deployer-keystore.json
+
+# Runtime & temporary outputs
+storage/
+output/
+tmp/
+.tmp/
+*.log
+e2e-artifacts/
+playwright-report/
+test-results/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
