@@ -25,6 +25,16 @@ async function main() {
 
   const baseProvider = new ethers.JsonRpcProvider(BASE_RPC);
   const lasnaProvider = new ethers.JsonRpcProvider(LASNA_RPC);
+  const [baseNet, lasnaNet] = await Promise.all([
+    baseProvider.getNetwork(),
+    lasnaProvider.getNetwork(),
+  ]);
+  if (baseNet.chainId !== 84532n) {
+    throw new Error(`Expected Base Sepolia chainId 84532, got ${baseNet.chainId}`);
+  }
+  if (lasnaNet.chainId !== 5318007n) {
+    throw new Error(`Expected Reactive Lasna chainId 5318007, got ${lasnaNet.chainId}`);
+  }
   const wallet = new ethers.Wallet(pk, baseProvider);
 
   const [baseBal, lasnaBefore] = await Promise.all([

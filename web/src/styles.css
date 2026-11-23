@@ -357,6 +357,15 @@ body {
   text-decoration: underline;
 }
 
+.tx-sim {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.tx-sim:hover {
+  text-decoration: none;
+}
+
 /* Latency Comparison */
 .race-box {
   background: #0a1120;

@@ -40,7 +40,7 @@ Live RPC bytecode verification against `dev.reactive.network` confirmed that Rea
 | **Base Sepolia** | `84532` | Official `ReactiveFaucetL1` Bridge (`1 ETH → 100 lREACT`) | `0x2afaFD298b23b62760711756088F75B7409f5967` |
 
 ### Key Reactive Omni Engineering Decisions
-- **100% `block.timestamp` Cooldowns (NEVER `block.number`)**: Base Sepolia produces 5 blocks/sec (200ms). Both `OmniGuardReactive` (`rebalanceCooldownSeconds = 15`, `emergencyCooldownSeconds = 5`, `escalationWindowSeconds = 60`) and `OriginPriceVault` (`vaultCooldownSeconds = 15`, `maxCallbackDelaySeconds = 300`) strictly use wall-clock timestamps — verified by mining 100 rapid blocks in tests!
+- **100% `block.timestamp` Cooldowns (NEVER `block.number`)**: Base Sepolia produces 5 blocks/sec (200ms). Both `OmniGuardReactive` (`rebalanceCooldownSeconds = 15`, `emergencyCooldownSeconds = 300` repeat-freeze suppression window, `escalationWindowSeconds = 60`) and `OriginPriceVault` (`vaultCooldownSeconds = 15`, `maxCallbackDelaySeconds = 300`, rate-limited authenticated `checkAndEmitHealthFactor`) strictly use wall-clock timestamps — verified by mining 100 rapid blocks in tests!
 - **Stateful Multi-Tier Escalation (Not a Trivial Pass-Through)**:
   - `SAFE` (`>= 1.35x`): Resets warning streak, 0 callbacks.
   - `WARN` (`1.20x – 1.35x`): Tracks per-user consecutive warning streak inside a 60s window; 1st warning emits alert without spending destination gas; 2nd consecutive warning auto-escalates to `REBALANCE`.
@@ -58,7 +58,7 @@ Live RPC bytecode verification against `dev.reactive.network` confirmed that Rea
 
 ## Quick Start & Verification
 
-### 1. Install, Compile & Run Full Security Suite (28/28 Tests)
+### 1. Install, Compile & Run Full Security Suite (31/31 Tests)
 ```bash
 npm install
 npm run compile
@@ -66,12 +66,12 @@ npm test
 npm run deploy:local
 ```
 
-**Test Suite Coverage (`test/OmniGuard.test.js` — 28 passing tests):**
+**Test Suite Coverage (`test/OmniGuard.test.js` — 31 passing tests):**
 - **Deployment & Subscription Lifecycle (4 tests)**: `hardhat_setCode` installs `MockOmniSystemContract` at exact `0x8888...8888`, verifying immutable `_CALLBACK_SENDER`, exact `SYSTEM.subscribe` criteria, constructor guards, and owner-only unsubscribe/re-subscribe.
 - **End-to-End 3-Hop Loop (5 tests)**: Shield-only rebalance (0 ETH sold), hybrid shield + exact self-deleverage math, full `SAFE → WARN(1) → WARN(2)→REBALANCE → EMERGENCY_FREEZE` escalation, circuit-breaker freeze/recovery, and cross-chain Base Sepolia → Unichain Sepolia (`1301`) routing.
 - **Base Sepolia 200ms Safety (4 tests)**: 100-block rapid burst cooldown immunity test, independent on-chain `vaultCooldownSeconds`, stale/future timestamp rejection, and out-of-order stale log suppression.
 - **Adversarial Security & Auth (8 tests)**: Unauthorized direct callback (`NotAuthorized`), spoofed reactive sender via valid proxy (`CallbackNotAuthorized`), spoofed `react()` caller (`NotAuthorized`), replay & zero-nonce rejection (`NonMonotonicNonce`), malicious proxy reentrancy attack during `coverDebt()` (`ReentrancyGuard`), non-reverting `react()` gas safety, invalid tier/target/duplicate-freeze guards, and Reactive `pay()`/`coverDebt()` settlement.
-- **Edge Cases, Governance & Gas Budget (7 tests)**: Underwater `<1.00x` crash without underflow, `$100M+` treasury overflow safety, zero-debt handling, oracle auth + 25-user batch DoS cap, guardian pause + native rescue, per-user risk isolation, and `<900,000` Reactive gas cap verification (`~205k` destination callback gas).
+- **Edge Cases, Anti-Drain, Governance & Gas Budget (10 tests)**: Underwater `<1.00x` crash without underflow, `$100M+` treasury overflow safety, zero-debt handling, oracle auth + 25-user batch DoS cap, already-frozen skip in `updateOraclePrice`/`openOrTopUpPosition`, authenticated wall-clock rate-limited `checkAndEmitHealthFactor` anti-spam guard, 300s repeat-freeze suppression + instant re-arm on `unfreezePosition`, guardian pause + native rescue, per-user risk isolation, and `<900,000` Reactive gas cap verification (`~205k` destination callback gas).
 
 ### 2. Build Web dApp & Run Playwright E2E Smoke Test
 ```bash

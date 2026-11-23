@@ -81,7 +81,9 @@ contract OmniGuardReactive is AbstractReactive {
 
     // Wall-clock timestamp controls (seconds — immune to Base Sepolia's 200ms block cadence!)
     uint256 public rebalanceCooldownSeconds = 15;
-    uint256 public emergencyCooldownSeconds = 5;
+    /// @notice Long retry window suppressing redundant repeat EMERGENCY_FREEZE callbacks while already frozen.
+    ///         Initial escalation from SAFE/WARN/REBALANCE -> EMERGENCY_FREEZE executes immediately (0s delay).
+    uint256 public emergencyCooldownSeconds = 300;
     uint256 public escalationWindowSeconds = 60;
     uint256 public warnEscalationCount = 2; // 2 consecutive WARN events within window -> REBALANCE
 
@@ -407,8 +409,8 @@ contract OmniGuardReactive is AbstractReactive {
         if (
             rebalanceCooldownSec_ == 0 ||
             rebalanceCooldownSec_ > 3600 ||
-            emergencyCooldownSec_ == 0 ||
-            emergencyCooldownSec_ > rebalanceCooldownSec_ ||
+            emergencyCooldownSec_ < 60 ||
+            emergencyCooldownSec_ > 86_400 ||
             escalationWindowSec_ < rebalanceCooldownSec_ ||
             warnEscalationCount_ < 2 ||
             warnEscalationCount_ > 10

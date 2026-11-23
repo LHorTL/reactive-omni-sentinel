@@ -14,6 +14,25 @@ const rootDir = path.resolve(__dirname, "..");
 const BASE_RPC = process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org";
 const LASNA_RPC = process.env.REACTIVE_LASNA_RPC || "https://lasna-rpc.rnk.dev/";
 
+const BASE_CHAIN_ID = 84532n;
+const LASNA_CHAIN_ID = 5318007n;
+
+function syncWebLiveConfig(manifest) {
+  const webConfigPath = path.join(rootDir, "web", "src", "config", "networks.js");
+  if (!fs.existsSync(webConfigPath)) return;
+  const src = fs.readFileSync(webConfigPath, "utf8");
+  const updatedBlock = `export const LIVE_DEPLOYMENT = {
+  deployed: true,
+  originVault: ${JSON.stringify(manifest.originPriceVault || "")},
+  reactiveSentinel: ${JSON.stringify(manifest.omniGuardReactive || "")},
+  sampleOriginTx: ${JSON.stringify(manifest.liveLoopProof?.originTx || "")},
+  sampleReactiveTx: ${JSON.stringify(manifest.liveLoopProof?.reactiveTx || "")},
+  sampleCallbackTx: ${JSON.stringify(manifest.liveLoopProof?.callbackTx || "")},
+};`;
+  const replaced = src.replace(/export const LIVE_DEPLOYMENT = \{[\s\S]*?\};/, updatedBlock);
+  fs.writeFileSync(webConfigPath, replaced, "utf8");
+}
+
 function loadArtifact(contractName) {
   const artifactPath = path.join(
     rootDir,
@@ -39,6 +58,18 @@ async function main() {
 
   const baseProvider = new ethers.JsonRpcProvider(BASE_RPC);
   const lasnaProvider = new ethers.JsonRpcProvider(LASNA_RPC);
+
+  const [baseNet, lasnaNet] = await Promise.all([
+    baseProvider.getNetwork(),
+    lasnaProvider.getNetwork(),
+  ]);
+  if (baseNet.chainId !== BASE_CHAIN_ID) {
+    throw new Error(`Expected Base Sepolia chainId ${BASE_CHAIN_ID}, got ${baseNet.chainId}`);
+  }
+  if (lasnaNet.chainId !== LASNA_CHAIN_ID) {
+    throw new Error(`Expected Reactive Lasna chainId ${LASNA_CHAIN_ID}, got ${lasnaNet.chainId}`);
+  }
+
   const baseWallet = new ethers.Wallet(pk, baseProvider);
 
   const vault = new ethers.Contract(
@@ -123,7 +154,8 @@ async function main() {
     endToEndWallClockMs: Date.now() - t0,
   };
   fs.writeFileSync(livePath, JSON.stringify(manifest, null, 2));
-  console.log("\nUpdated deployments/live.json with live 3-hop proof hashes!");
+  syncWebLiveConfig(manifest);
+  console.log("\nUpdated deployments/live.json and synced web/src/config/networks.js with live 3-hop proof hashes!");
 }
 
 main().catch((err) => {

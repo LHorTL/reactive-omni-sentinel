@@ -94,6 +94,12 @@ def main():
             rows = page.locator('[data-testid="audit-tbody"] tr').count()
             assert rows == 4, f"Expected 4 audit rows, got {rows}"
 
+            # Verify simulated TX hashes do NOT render as dead external explorer links
+            dead_tx_links = page.locator('a[href*="basescan.org/tx/"], a[href*="reactscan.net/tx/"]').count()
+            assert dead_tx_links == 0, f"Simulated TX hashes must not link to live explorers (found {dead_tx_links})"
+            assert page.locator('[data-testid="sim-origin-tx"]').is_visible()
+            assert page.locator('[data-testid="sim-reactive-tx"]').is_visible()
+
             # Check Live Testnet tab renders cleanly
             page.get_by_role("tab", name="Live Testnet RPC").click()
             assert page.locator("#vault-addr").is_visible()

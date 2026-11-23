@@ -411,15 +411,20 @@ export default function App() {
             </div>
             <span className="hop-latency mono">{hop.originMs} ms</span>
             <div>
-              <a
-                className="tx-link mono"
-                href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleOriginTx || hop.originTx}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {LIVE_DEPLOYMENT.sampleOriginTx ? "Live TX: " : "Sim TX: "}
-                {shortHash(LIVE_DEPLOYMENT.sampleOriginTx || hop.originTx)} ↗
-              </a>
+              {LIVE_DEPLOYMENT.sampleOriginTx ? (
+                <a
+                  className="tx-link mono"
+                  href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleOriginTx}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Live TX: {shortHash(LIVE_DEPLOYMENT.sampleOriginTx)} ↗
+                </a>
+              ) : (
+                <span className="tx-link tx-sim mono" data-testid="sim-origin-tx">
+                  Sim TX: {shortHash(hop.originTx)} (local sim)
+                </span>
+              )}
             </div>
           </div>
 
@@ -434,15 +439,20 @@ export default function App() {
             </div>
             <span className="hop-latency mono">{hop.reactiveMs} ms (CometBFT)</span>
             <div>
-              <a
-                className="tx-link mono"
-                href={`${NETWORKS.reactiveLasna.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleReactiveTx || hop.reactiveTx}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {LIVE_DEPLOYMENT.sampleReactiveTx ? "Live TX: " : "Sim TX: "}
-                {shortHash(LIVE_DEPLOYMENT.sampleReactiveTx || hop.reactiveTx)} ↗
-              </a>
+              {LIVE_DEPLOYMENT.sampleReactiveTx ? (
+                <a
+                  className="tx-link mono"
+                  href={`${NETWORKS.reactiveLasna.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleReactiveTx}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Live TX: {shortHash(LIVE_DEPLOYMENT.sampleReactiveTx)} ↗
+                </a>
+              ) : (
+                <span className="tx-link tx-sim mono" data-testid="sim-reactive-tx">
+                  Sim TX: {shortHash(hop.reactiveTx)} (local sim)
+                </span>
+              )}
             </div>
           </div>
 
@@ -467,18 +477,21 @@ export default function App() {
               {hop.callbackTx ? `${hop.callbackMs} ms delivered` : "Skipped (gas saved)"}
             </span>
             <div>
-              {hop.callbackTx ? (
+              {LIVE_DEPLOYMENT.sampleCallbackTx ? (
                 <a
                   className="tx-link mono"
-                  href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleCallbackTx || hop.callbackTx}`}
+                  href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleCallbackTx}`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {LIVE_DEPLOYMENT.sampleCallbackTx ? "Live TX: " : "Sim TX: "}
-                  {shortHash(LIVE_DEPLOYMENT.sampleCallbackTx || hop.callbackTx)} ↗
+                  Live TX: {shortHash(LIVE_DEPLOYMENT.sampleCallbackTx)} ↗
                 </a>
+              ) : hop.callbackTx ? (
+                <span className="tx-link tx-sim mono" data-testid="sim-callback-tx">
+                  Sim TX: {shortHash(hop.callbackTx)} (local sim)
+                </span>
               ) : (
-                <span className="tx-link mono">No callback needed for {hop.tier}</span>
+                <span className="tx-link tx-sim mono">No callback needed for {hop.tier}</span>
               )}
             </div>
           </div>
@@ -789,7 +802,7 @@ export default function App() {
               Built natively against <code className="mono">reactive-lib-omni</code> (v2 System Contract + V_1_0 Callbacks) — zero deprecated legacy primitives.
             </div>
           </div>
-          <span className="badge badge-emerald">28/28 Security Tests Passing</span>
+          <span className="badge badge-emerald">31/31 Security Tests Passing</span>
         </div>
 
         <div className="spec-grid">

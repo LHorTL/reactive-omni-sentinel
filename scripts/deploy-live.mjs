@@ -36,6 +36,22 @@ function loadArtifact(contractName) {
   return JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 }
 
+function syncWebLiveConfig(record) {
+  const webConfigPath = path.join(rootDir, "web", "src", "config", "networks.js");
+  if (!fs.existsSync(webConfigPath)) return;
+  const src = fs.readFileSync(webConfigPath, "utf8");
+  const updatedBlock = `export const LIVE_DEPLOYMENT = {
+  deployed: true,
+  originVault: ${JSON.stringify(record.originPriceVault || "")},
+  reactiveSentinel: ${JSON.stringify(record.omniGuardReactive || "")},
+  sampleOriginTx: ${JSON.stringify(record.liveLoopProof?.originTx || "")},
+  sampleReactiveTx: ${JSON.stringify(record.liveLoopProof?.reactiveTx || "")},
+  sampleCallbackTx: ${JSON.stringify(record.liveLoopProof?.callbackTx || "")},
+};`;
+  const replaced = src.replace(/export const LIVE_DEPLOYMENT = \{[\s\S]*?\};/, updatedBlock);
+  fs.writeFileSync(webConfigPath, replaced, "utf8");
+}
+
 async function main() {
   const pk = process.env.DEPLOYER_PRIVATE_KEY || "";
   if (!pk.startsWith("0x") || pk.length !== 66) {
@@ -47,6 +63,18 @@ async function main() {
 
   const lasnaProvider = new ethers.JsonRpcProvider(LASNA_RPC);
   const baseProvider = new ethers.JsonRpcProvider(BASE_RPC);
+
+  const [baseNet, lasnaNet] = await Promise.all([
+    baseProvider.getNetwork(),
+    lasnaProvider.getNetwork(),
+  ]);
+  if (baseNet.chainId !== BASE_CHAIN_ID) {
+    throw new Error(`Expected Base Sepolia chainId ${BASE_CHAIN_ID}, got ${baseNet.chainId}`);
+  }
+  if (lasnaNet.chainId !== LASNA_CHAIN_ID) {
+    throw new Error(`Expected Reactive Lasna chainId ${LASNA_CHAIN_ID}, got ${lasnaNet.chainId}`);
+  }
+
   const lasnaWallet = new ethers.Wallet(pk, lasnaProvider);
   const baseWallet = new ethers.Wallet(pk, baseProvider);
 
@@ -138,7 +166,8 @@ async function main() {
     },
   };
   fs.writeFileSync(path.join(deploymentsDir, "live.json"), JSON.stringify(record, null, 2));
-  console.log("\nSaved deployment manifest to deployments/live.json.");
+  syncWebLiveConfig(record);
+  console.log("\nSaved deployment manifest to deployments/live.json and synced web/src/config/networks.js.");
   console.log("Next: run `npm run trigger:live` to execute and record the live 3-hop loop!");
 }
 

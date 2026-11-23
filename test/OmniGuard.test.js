@@ -913,21 +913,144 @@ describe("OmniGuard — Reactive Omni Sub-Second Liquidation Shield & Circuit Br
       expect(await reactive.targetHealthBps()).to.equal(16000n);
 
       // Invalid cooldown config rejected
-      await expect(reactive.updateCooldowns(0, 5, 60, 2)).to.be.revertedWithCustomError(
+      await expect(reactive.updateCooldowns(0, 300, 60, 2)).to.be.revertedWithCustomError(
         reactive,
         "InvalidCooldownConfig"
       );
-      await expect(reactive.updateCooldowns(15, 20, 60, 2)).to.be.revertedWithCustomError(
+      await expect(reactive.updateCooldowns(15, 30, 60, 2)).to.be.revertedWithCustomError(
         reactive,
         "InvalidCooldownConfig"
       );
-      await expect(reactive.updateCooldowns(15, 5, 60, 1)).to.be.revertedWithCustomError(
+      await expect(reactive.updateCooldowns(15, 300, 60, 1)).to.be.revertedWithCustomError(
         reactive,
         "InvalidCooldownConfig"
       );
 
       // Valid cooldown update succeeds
-      await expect(reactive.updateCooldowns(20, 8, 90, 3)).to.emit(reactive, "CooldownsUpdated");
+      await expect(reactive.updateCooldowns(20, 600, 90, 3)).to.emit(reactive, "CooldownsUpdated");
+    });
+
+    it("skips already-frozen positions in updateOraclePrice and openOrTopUpPosition (zero Lasna drain)", async function () {
+      await vault.connect(alice).openOrTopUpPosition(ethers.parseEther("10"), 0);
+      await vault.connect(alice).borrow(ethers.parseUnits("18000", 18));
+
+      // Flash crash to $600 -> underwater EMERGENCY_FREEZE (collateral=0, debt=$12,000, frozen=true)
+      const crashTx = await vault.connect(oracle).updateOraclePrice(ethers.parseUnits("600", 18), [alice.address]);
+      await relayOriginToDestination(await crashTx.wait());
+      expect((await vault.getPosition(alice.address)).frozen).to.equal(true);
+
+      // Subsequent oracle price update must NOT emit HealthFactorChanged for frozen Alice
+      const nextPriceTx = await vault.connect(oracle).updateOraclePrice(ethers.parseUnits("500", 18), [alice.address]);
+      const nextReceipt = await nextPriceTx.wait();
+      const emitted = nextReceipt.logs.filter(
+        (l) => l.topics[0].toLowerCase() === healthFactorTopic0.toLowerCase()
+      );
+      expect(emitted.length).to.equal(0);
+
+      // Partial collateral top-up while still frozen must ALSO not emit HealthFactorChanged
+      const topUpTx = await vault.connect(alice).openOrTopUpPosition(ethers.parseEther("1"), 0);
+      const topUpReceipt = await topUpTx.wait();
+      const topUpEmitted = topUpReceipt.logs.filter(
+        (l) => l.topics[0].toLowerCase() === healthFactorTopic0.toLowerCase()
+      );
+      expect(topUpEmitted.length).to.equal(0);
+    });
+
+    it("blocks unauthorized callers, frozen/zero-debt positions, and rapid spam on checkAndEmitHealthFactor", async function () {
+      await vault.connect(alice).openOrTopUpPosition(ethers.parseEther("10"), 0);
+
+      // Zero-debt position rejected even for authorized caller
+      await expect(
+        vault.connect(alice).checkAndEmitHealthFactor(alice.address)
+      ).to.be.revertedWithCustomError(vault, "ZeroDebtPosition");
+
+      await vault.connect(alice).borrow(ethers.parseUnits("18000", 18));
+
+      // Random attacker cannot spam checkAndEmitHealthFactor to drain Lasna lREACT
+      await expect(
+        vault.connect(attacker).checkAndEmitHealthFactor(alice.address)
+      ).to.be.revertedWithCustomError(vault, "UnauthorizedPulseCaller");
+
+      // Authorized pulse succeeds once
+      await expect(vault.connect(alice).checkAndEmitHealthFactor(alice.address)).to.emit(
+        vault,
+        "HealthFactorChanged"
+      );
+
+      // Immediate second pulse inside 15s wall-clock cooldown rejected with PulseCooldownActive
+      await advanceTime(5);
+      await expect(
+        vault.connect(alice).checkAndEmitHealthFactor(alice.address)
+      ).to.be.revertedWithCustomError(vault, "PulseCooldownActive");
+
+      // After cooldown expires, pulse succeeds again
+      await advanceTime(11);
+      await expect(vault.connect(oracle).checkAndEmitHealthFactor(alice.address)).to.emit(
+        vault,
+        "HealthFactorChanged"
+      );
+
+      // Frozen position cannot emit pulses
+      const crashTx = await vault.connect(oracle).updateOraclePrice(ethers.parseUnits("1900", 18), [alice.address]);
+      await relayOriginToDestination(await crashTx.wait());
+      await advanceTime(20);
+      await expect(
+        vault.connect(alice).checkAndEmitHealthFactor(alice.address)
+      ).to.be.revertedWithCustomError(vault, "PositionFrozen");
+    });
+
+    it("suppresses repeat EMERGENCY_FREEZE callbacks for 300s retry window and re-arms on unfreezePosition", async function () {
+      await vault.connect(alice).openOrTopUpPosition(ethers.parseEther("10"), 0);
+      await vault.connect(alice).borrow(ethers.parseUnits("18000", 18));
+
+      // Initial flash crash -> immediate EMERGENCY_FREEZE (nonce=1)
+      const crashTx = await vault.connect(oracle).updateOraclePrice(ethers.parseUnits("1900", 18), [alice.address]);
+      const crashRes = await relayOriginToDestination(await crashTx.wait());
+      expect(crashRes.callbackDispatched).to.equal(true);
+      expect((await vault.getPosition(alice.address)).frozen).to.equal(true);
+
+      // Even if a critical log arrives 30s later (< 300s retry window), Reactive suppresses repeat freeze!
+      await advanceTime(30);
+      const tsNow = BigInt((await ethers.provider.getBlock("latest")).timestamp);
+      const repeatedCrashLog = {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        contractAddress: await vault.getAddress(),
+        topic0: BigInt(healthFactorTopic0),
+        topic1: BigInt(alice.address),
+        topic2: 0n,
+        topic3: 0n,
+        data: ethers.AbiCoder.defaultAbiCoder().encode(
+          ["uint256", "uint256", "uint256", "uint256"],
+          [9500n, ethers.parseUnits("9500", 18), ethers.parseUnits("10000", 18), tsNow]
+        ),
+        blockNumber: 10n,
+        opCode: 3n,
+        blockHash: 10n,
+        txHash: 10n,
+        logIndex: 0n,
+      };
+      const beforeCb = await systemContract.pendingCallbackCount();
+      await expect(systemContract.trigger(await reactive.getAddress(), repeatedCrashLog)).to.emit(
+        reactive,
+        "CooldownSuppressed"
+      );
+      expect(await systemContract.pendingCallbackCount()).to.equal(beforeCb);
+
+      // User tops up collateral and calls unfreezePosition -> emits HealthFactorChanged (SAFE), resetting Reactive state!
+      await advanceTime(2);
+      await vault.connect(alice).openOrTopUpPosition(ethers.parseEther("10"), 0);
+      const unfreezeTx = await vault.connect(alice).unfreezePosition(alice.address);
+      const unfreezeRes = await relayOriginToDestination(await unfreezeTx.wait());
+      expect(unfreezeRes.callbackDispatched).to.equal(false);
+      expect((await reactive.getUserRiskState(alice.address)).lastTier).to.equal(0n); // SAFE
+
+      // New flash crash 2s later ($180 -> HF ~1.04x < 1.08x) immediately re-triggers EMERGENCY_FREEZE (0s delay!)
+      await advanceTime(2);
+      const crash2Tx = await vault.connect(oracle).updateOraclePrice(ethers.parseUnits("180", 18), [alice.address]);
+      const crash2Res = await relayOriginToDestination(await crash2Tx.wait());
+      expect(crash2Res.callbackDispatched).to.equal(true);
+      expect((await vault.getPosition(alice.address)).frozen).to.equal(true);
+      expect(await vault.totalCircuitBreakerTrips()).to.equal(2n);
     });
 
     it("isolates per-user risk state, nonces, and circuit-breaker freezes across concurrent users", async function () {

@@ -59,6 +59,9 @@ contract OriginPriceVault is AbstractCallback, Ownable, Pausable, ReentrancyGuar
     error CooldownActive(address user, uint256 nextAllowedTs, uint256 currentTs);
     error UnauthorizedOracle(address caller);
     error UnauthorizedGuardian(address caller);
+    error UnauthorizedPulseCaller(address caller);
+    error PulseCooldownActive(address user, uint256 nextAllowedTs, uint256 currentTs);
+    error ZeroDebtPosition(address user);
     error BatchTooLarge(uint256 length, uint256 maxLength);
     error InvalidDelayConfig(uint256 value);
 
@@ -112,6 +115,7 @@ contract OriginPriceVault is AbstractCallback, Ownable, Pausable, ReentrancyGuar
     mapping(address => Position) private _positions;
     mapping(address => uint256) public lastProcessedNonce;
     mapping(address => mapping(uint256 => bool)) public processedNonces;
+    mapping(address => uint256) public lastPulseEmittedAt;
 
     // -------------------------------------------------------------------------
     // Events
@@ -247,7 +251,7 @@ contract OriginPriceVault is AbstractCallback, Ownable, Pausable, ReentrancyGuar
             block.timestamp
         );
 
-        if (pos.debtUsd > 0) {
+        if (pos.debtUsd > 0 && !pos.frozen) {
             _emitHealthFactor(msg.sender, pos);
         }
     }
@@ -309,7 +313,7 @@ contract OriginPriceVault is AbstractCallback, Ownable, Pausable, ReentrancyGuar
             block.timestamp
         );
 
-        if (pos.debtUsd > 0) {
+        if (pos.debtUsd > 0 && !pos.frozen) {
             _emitHealthFactor(msg.sender, pos);
         }
     }
@@ -333,12 +337,15 @@ contract OriginPriceVault is AbstractCallback, Ownable, Pausable, ReentrancyGuar
             pos.shieldReserveUsd,
             block.timestamp
         );
-        _emitHealthFactor(msg.sender, pos);
+        if (!pos.frozen) {
+            _emitHealthFactor(msg.sender, pos);
+        }
     }
 
     /**
-     * @notice Updates the collateral oracle price and emits `HealthFactorChanged` for affected users.
-     * @dev Bounded batch size prevents gas exhaustion DoS. Emits logs picked up immediately by Reactive Lasna.
+     * @notice Updates the collateral oracle price and emits `HealthFactorChanged` for active unfrozen users.
+     * @dev Bounded batch size prevents gas exhaustion DoS. Already-frozen positions are skipped so Reactive Lasna
+     *      lREACT and Base Sepolia callback ETH are never wasted on redundant freeze loops.
      */
     function updateOraclePrice(
         uint256 newPriceUsd,
@@ -357,18 +364,38 @@ contract OriginPriceVault is AbstractCallback, Ownable, Pausable, ReentrancyGuar
         for (uint256 i = 0; i < usersToEmit.length; ++i) {
             address user = usersToEmit[i];
             Position storage pos = _positions[user];
-            if (pos.exists && pos.debtUsd > 0) {
+            if (pos.exists && pos.debtUsd > 0 && !pos.frozen) {
                 _emitHealthFactor(user, pos);
             }
         }
     }
 
     /**
-     * @notice Permissionless health pulse emitter for any active indebted position.
+     * @notice Authenticated, rate-limited health pulse emitter for an active unfrozen indebted position.
+     * @dev Restricted to the position owner, oracle, guardian, or contract owner with wall-clock `block.timestamp`
+     *      cooldown to prevent permissionless log-spam draining Reactive Lasna lREACT reserves.
      */
     function checkAndEmitHealthFactor(address user) external whenNotPaused {
+        if (
+            msg.sender != user &&
+            msg.sender != priceOracle &&
+            msg.sender != guardian &&
+            msg.sender != owner()
+        ) {
+            revert UnauthorizedPulseCaller(msg.sender);
+        }
+
         Position storage pos = _positions[user];
         if (!pos.exists) revert PositionNotFound(user);
+        if (pos.frozen) revert PositionFrozen(user);
+        if (pos.debtUsd == 0) revert ZeroDebtPosition(user);
+
+        uint256 lastPulse = lastPulseEmittedAt[user];
+        if (lastPulse != 0 && block.timestamp < lastPulse + vaultCooldownSeconds) {
+            revert PulseCooldownActive(user, lastPulse + vaultCooldownSeconds, block.timestamp);
+        }
+
+        lastPulseEmittedAt[user] = block.timestamp;
         _emitHealthFactor(user, pos);
     }
 
