@@ -1,6 +1,8 @@
 # OmniGuard Sentinel — Sub-Second Cross-Chain Liquidation Shield & Automated Circuit Breaker
 
 > **Reactive Omni Buildathon Entry** (`Every Second Counts` — Base Sepolia `84532` ↔ Reactive Lasna `5318007`)  
+> **Live Telemetry & Interactive Simulator:** https://lhortl.github.io/reactive-omni-sentinel/  
+> **Repository:** https://github.com/LHorTL/reactive-omni-sentinel  
 > Built natively against **Reactive Omni v2** (`reactive-lib-omni`, System Contract `0x8888...8888`, `SYSTEM.requestCallbackV_1_0`, and Base Sepolia Omni Callback Proxy `0x476F44b11F5C942c58f4c8E3d0300E5710743585`).
 
 ---
