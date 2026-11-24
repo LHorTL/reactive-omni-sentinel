@@ -23,11 +23,11 @@ function shortHash(hash) {
 }
 
 function tierBadgeClass(tier) {
-  if (tier === "SAFE") return "badge badge-emerald";
-  if (tier === "WARN") return "badge badge-amber";
-  if (tier === "REBALANCE") return "badge badge-cyan";
-  if (tier === "EMERGENCY_FREEZE") return "badge badge-rose";
-  return "badge badge-violet";
+  if (tier === "SAFE") return "badge badge-ok";
+  if (tier === "WARN") return "badge badge-warn";
+  if (tier === "REBALANCE") return "badge badge-accent";
+  if (tier === "EMERGENCY_FREEZE") return "badge badge-err";
+  return "badge badge-neutral";
 }
 
 function healthGaugePercent(bps) {
@@ -254,7 +254,7 @@ export default function App() {
       {/* Top Bar */}
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark mono">OG</div>
+          <div className="brand-accent-bar" aria-hidden="true" />
           <div>
             <h1>OmniGuard Sentinel</h1>
             <p>Reactive Omni Sub-Second Liquidation Shield &amp; Automated Circuit Breaker</p>
@@ -303,12 +303,12 @@ export default function App() {
           {rpcPulse.baseBlock ? `• #${rpcPulse.baseBlock.toLocaleString()}` : `• #${sim.baseBlockHeight.toLocaleString()} (sim)`}
         </div>
         <div className="pill mono">
-          <span className="dot dot-cyan" />
+          <span className="dot dot-accent" />
           Reactive Lasna Omni (5318007): ~1s CometBFT{" "}
           {rpcPulse.lasnaBlock ? `• #${rpcPulse.lasnaBlock.toLocaleString()}` : `• #${sim.lasnaBlockHeight.toLocaleString()} (sim)`}
         </div>
         <div className="pill mono">
-          <span className="dot dot-amber" />
+          <span className="dot dot-warn" />
           Cooldown Mode: block.timestamp (15s) • NEVER block counts
         </div>
         {walletChainId && (
@@ -323,11 +323,11 @@ export default function App() {
 
       {/* Live Testnet Control Panel (shown when Live Mode selected) */}
       {mode === "live" && (
-        <section className="card">
-          <div className="card-header">
+        <section className="section-block">
+          <div className="section-header">
             <div>
-              <div className="card-title">Live Testnet Contract Inspector (Base Sepolia ↔ Reactive Lasna)</div>
-              <div className="card-sub">
+              <div className="section-title">Live Testnet Contract Inspector (Base Sepolia ↔ Reactive Lasna)</div>
+              <div className="section-sub">
                 Reads live contract state directly from official RPCs without backend servers.
               </div>
             </div>
@@ -358,28 +358,28 @@ export default function App() {
           </div>
 
           {liveData ? (
-            <div className="grid-4">
-              <div className="metric-tile">
+            <div className="metric-grid-4">
+              <div className="metric-cell">
                 <div className="metric-label">Live Oracle Price</div>
                 <div className="metric-value mono">{formatUsd(liveData.priceUsd)}</div>
               </div>
-              <div className="metric-tile">
+              <div className="metric-cell">
                 <div className="metric-label">Lasna Subscription</div>
                 <div className="metric-value mono">{liveData.subscribed ? "ACTIVE" : "INACTIVE"}</div>
               </div>
-              <div className="metric-tile">
+              <div className="metric-cell">
                 <div className="metric-label">Reactive Callbacks</div>
                 <div className="metric-value mono">{liveData.callbacksReq}</div>
                 <div className="metric-sub">{liveData.eventsProcessed} logs evaluated</div>
               </div>
-              <div className="metric-tile">
+              <div className="metric-cell">
                 <div className="metric-label">Vault Protections</div>
                 <div className="metric-value mono">{liveData.protections}</div>
                 <div className="metric-sub">{liveData.trips} circuit breaker trips</div>
               </div>
             </div>
           ) : (
-            <div className="card-sub">
+            <div className="section-sub">
               Fund a deployer with Base Sepolia ETH, run <code className="mono">npm run faucet:bridge</code> &amp;{" "}
               <code className="mono">npm run deploy:live</code> to populate live addresses, or switch back to{" "}
               <strong>Interactive Simulator</strong> to test the identical Solidity state machine immediately.
@@ -388,12 +388,12 @@ export default function App() {
         </section>
       )}
 
-      {/* Flagship Hero: 3-Hop Cross-Chain Finality Visualizer */}
-      <section className="card">
-        <div className="card-header">
+      {/* Flagship 3-Hop Cross-Chain Finality Pipeline */}
+      <section className="section-block">
+        <div className="section-header">
           <div>
-            <div className="card-title">3-Hop Reactive Omni Execution Pipeline (Every Second Counts)</div>
-            <div className="card-sub">
+            <div className="section-title">3-Hop Reactive Omni Execution Pipeline (Every Second Counts)</div>
+            <div className="section-sub">
               End-to-end autonomous liquidation defense without centralized keeper bots or off-chain polling.
             </div>
           </div>
@@ -403,96 +403,108 @@ export default function App() {
         </div>
 
         <div className="pipeline">
-          <div className={`hop-card ${hop.tier !== "SAFE" ? "active" : ""}`}>
-            <div className="hop-step">Hop 1 • Origin Chain</div>
-            <div className="hop-title">Base Sepolia (84532)</div>
-            <div className="hop-detail">
-              <code className="mono">OriginPriceVault</code> emits <code className="mono">HealthFactorChanged</code> on 200ms block
-            </div>
-            <span className="hop-latency mono">{hop.originMs} ms</span>
+          <div className={`hop-step-box ${hop.tier !== "SAFE" ? "active" : ""}`}>
             <div>
-              {LIVE_DEPLOYMENT.sampleOriginTx ? (
-                <a
-                  className="tx-link mono"
-                  href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleOriginTx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Live TX: {shortHash(LIVE_DEPLOYMENT.sampleOriginTx)} ↗
-                </a>
-              ) : (
-                <span className="tx-link tx-sim mono" data-testid="sim-origin-tx">
-                  Sim TX: {shortHash(hop.originTx)} (local sim)
-                </span>
-              )}
+              <div className="hop-step">Hop 1 • Origin Chain</div>
+              <div className="hop-title">Base Sepolia (84532)</div>
+              <div className="hop-detail">
+                <code className="mono">OriginPriceVault</code> emits <code className="mono">HealthFactorChanged</code> on 200ms block
+              </div>
+            </div>
+            <div className="hop-meta">
+              <span className="hop-latency mono">{hop.originMs} ms</span>
+              <div>
+                {LIVE_DEPLOYMENT.sampleOriginTx ? (
+                  <a
+                    className="tx-link mono"
+                    href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleOriginTx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Live TX: {shortHash(LIVE_DEPLOYMENT.sampleOriginTx)} ↗
+                  </a>
+                ) : (
+                  <span className="tx-link tx-sim mono" data-testid="sim-origin-tx">
+                    Sim TX: {shortHash(hop.originTx)} (local sim)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="hop-arrow" aria-hidden="true">→</div>
 
-          <div className={`hop-card ${hop.tier === "EMERGENCY_FREEZE" ? "active-rose" : "active"}`}>
-            <div className="hop-step">Hop 2 • Reactive Omni</div>
-            <div className="hop-title">Reactive Lasna (5318007)</div>
-            <div className="hop-detail">
-              <code className="mono">SYSTEM 0x8888…8888</code> invokes <code className="mono">react()</code> →{" "}
-              <code className="mono">requestCallbackV_1_0</code>
-            </div>
-            <span className="hop-latency mono">{hop.reactiveMs} ms (CometBFT)</span>
+          <div className={`hop-step-box ${hop.tier === "EMERGENCY_FREEZE" ? "active-err" : "active"}`}>
             <div>
-              {LIVE_DEPLOYMENT.sampleReactiveTx ? (
-                <a
-                  className="tx-link mono"
-                  href={`${NETWORKS.reactiveLasna.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleReactiveTx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Live TX: {shortHash(LIVE_DEPLOYMENT.sampleReactiveTx)} ↗
-                </a>
-              ) : (
-                <span className="tx-link tx-sim mono" data-testid="sim-reactive-tx">
-                  Sim TX: {shortHash(hop.reactiveTx)} (local sim)
-                </span>
-              )}
+              <div className="hop-step">Hop 2 • Reactive Omni</div>
+              <div className="hop-title">Reactive Lasna (5318007)</div>
+              <div className="hop-detail">
+                <code className="mono">SYSTEM 0x8888…8888</code> invokes <code className="mono">react()</code> →{" "}
+                <code className="mono">requestCallbackV_1_0</code>
+              </div>
+            </div>
+            <div className="hop-meta">
+              <span className="hop-latency mono">{hop.reactiveMs} ms (CometBFT)</span>
+              <div>
+                {LIVE_DEPLOYMENT.sampleReactiveTx ? (
+                  <a
+                    className="tx-link mono"
+                    href={`${NETWORKS.reactiveLasna.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleReactiveTx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Live TX: {shortHash(LIVE_DEPLOYMENT.sampleReactiveTx)} ↗
+                  </a>
+                ) : (
+                  <span className="tx-link tx-sim mono" data-testid="sim-reactive-tx">
+                    Sim TX: {shortHash(hop.reactiveTx)} (local sim)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="hop-arrow" aria-hidden="true">→</div>
 
           <div
-            className={`hop-card ${
+            className={`hop-step-box ${
               hop.tier === "EMERGENCY_FREEZE"
-                ? "active-rose"
+                ? "active-err"
                 : hop.callbackTx
                 ? "active"
                 : ""
             }`}
           >
-            <div className="hop-step">Hop 3 • Destination Callback</div>
-            <div className="hop-title">Base Sepolia Proxy (0x476F…3585)</div>
-            <div className="hop-detail">
-              Verifies <code className="mono">onlyServiceProvider</code> + <code className="mono">onlyCallbackSender</code> →{" "}
-              <code className="mono">executeEmergencyDeleverage()</code>
-            </div>
-            <span className="hop-latency mono">
-              {hop.callbackTx ? `${hop.callbackMs} ms delivered` : "Skipped (gas saved)"}
-            </span>
             <div>
-              {LIVE_DEPLOYMENT.sampleCallbackTx ? (
-                <a
-                  className="tx-link mono"
-                  href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleCallbackTx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Live TX: {shortHash(LIVE_DEPLOYMENT.sampleCallbackTx)} ↗
-                </a>
-              ) : hop.callbackTx ? (
-                <span className="tx-link tx-sim mono" data-testid="sim-callback-tx">
-                  Sim TX: {shortHash(hop.callbackTx)} (local sim)
-                </span>
-              ) : (
-                <span className="tx-link tx-sim mono">No callback needed for {hop.tier}</span>
-              )}
+              <div className="hop-step">Hop 3 • Destination Callback</div>
+              <div className="hop-title">Base Sepolia Proxy (0x476F…3585)</div>
+              <div className="hop-detail">
+                Verifies <code className="mono">onlyServiceProvider</code> + <code className="mono">onlyCallbackSender</code> →{" "}
+                <code className="mono">executeEmergencyDeleverage()</code>
+              </div>
+            </div>
+            <div className="hop-meta">
+              <span className="hop-latency mono">
+                {hop.callbackTx ? `${hop.callbackMs} ms delivered` : "Skipped (gas saved)"}
+              </span>
+              <div>
+                {LIVE_DEPLOYMENT.sampleCallbackTx ? (
+                  <a
+                    className="tx-link mono"
+                    href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleCallbackTx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Live TX: {shortHash(LIVE_DEPLOYMENT.sampleCallbackTx)} ↗
+                  </a>
+                ) : hop.callbackTx ? (
+                  <span className="tx-link tx-sim mono" data-testid="sim-callback-tx">
+                    Sim TX: {shortHash(hop.callbackTx)} (local sim)
+                  </span>
+                ) : (
+                  <span className="tx-link tx-sim mono">No callback needed for {hop.tier}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -504,7 +516,7 @@ export default function App() {
               <span>
                 <strong>Reactive Omni (CometBFT Instant Finality)</strong> — Position defended before liquidators
               </span>
-              <span className="mono" style={{ color: "#6ee7b7" }}>
+              <span className="mono text-ok">
                 {(hop.totalOmniMs / 1000).toFixed(2)}s total ({(hop.savedMs / 1000).toFixed(2)}s faster)
               </span>
             </div>
@@ -518,7 +530,7 @@ export default function App() {
               <span>
                 <strong>Legacy Consensus / Off-Chain Keeper Polling</strong> — Vulnerable to Base Sepolia 200ms MEV
               </span>
-              <span className="mono" style={{ color: "#fda4af" }}>
+              <span className="mono text-err">
                 {(hop.legacyTotalMs / 1000).toFixed(2)}s total
               </span>
             </div>
@@ -530,213 +542,219 @@ export default function App() {
       </section>
 
       {/* Main Split Grid: Vault State + Interactive Judge Command Deck */}
-      <div className="grid-2">
-        {/* Vault Position & Escalation Telemetry */}
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Protected Vault Position &amp; Multi-Tier State</div>
-              <div className="card-sub">
-                Shield Reserve pays debt first; self-deleverage restores exact 1.50x HF via overflow-safe math.
+      <section className="section-block">
+        <div className="grid-2">
+          {/* Vault Position & Escalation Telemetry */}
+          <div className="split-col">
+            <div className="section-header">
+              <div>
+                <div className="section-title">Protected Vault Position &amp; Multi-Tier State</div>
+                <div className="section-sub">
+                  Shield Reserve pays debt first; self-deleverage restores exact 1.50x HF via overflow-safe math.
+                </div>
+              </div>
+              <span className={sim.frozen ? "badge badge-err" : "badge badge-ok"} data-testid="freeze-badge">
+                {sim.frozen ? "CIRCUIT BREAKER FROZEN" : "VAULT ACTIVE"}
+              </span>
+            </div>
+
+            <div className="metric-grid-2">
+              <div className="metric-cell">
+                <div className="metric-label">ETH Oracle Price</div>
+                <div className="metric-value mono" data-testid="metric-price">
+                  {formatUsd(sim.priceUsd)}
+                </div>
+                <div className="metric-sub">Collateral Val: {formatUsd(sim.collateralEth * sim.priceUsd)}</div>
+              </div>
+
+              <div className="metric-cell">
+                <div className="metric-label">Live Health Factor</div>
+                <div className="metric-value mono" data-testid="metric-hf">
+                  {formatHealth(currentHealthBps)}
+                </div>
+                <div className="metric-sub">Target Restore: 1.50x (15,000 bps)</div>
+              </div>
+
+              <div className="metric-cell">
+                <div className="metric-label">Collateral / Debt</div>
+                <div className="metric-value mono">
+                  {sim.collateralEth.toFixed(2)} ETH
+                </div>
+                <div className="metric-sub">Debt: {formatUsd(sim.debtUsd)}</div>
+              </div>
+
+              <div className="metric-cell">
+                <div className="metric-label">Shield Reserve &amp; Nonce</div>
+                <div className="metric-value mono">{formatUsd(sim.shieldReserveUsd)}</div>
+                <div className="metric-sub">
+                  Nonce #{sim.actionNonce} • WARN Streak {sim.warnStreak}/2
+                </div>
               </div>
             </div>
-            <span className={sim.frozen ? "badge badge-rose" : "badge badge-emerald"} data-testid="freeze-badge">
-              {sim.frozen ? "CIRCUIT BREAKER FROZEN" : "VAULT ACTIVE"}
-            </span>
-          </div>
 
-          <div className="grid-2-inner">
-            <div className="metric-tile">
-              <div className="metric-label">ETH Oracle Price</div>
-              <div className="metric-value mono" data-testid="metric-price">
-                {formatUsd(sim.priceUsd)}
+            {/* Segmented Health Factor Gauge (Zero Gradients) */}
+            <div className="gauge-wrap">
+              <div className="gauge-bar">
+                <div className="gauge-seg gauge-seg-err" />
+                <div className="gauge-seg gauge-seg-accent" />
+                <div className="gauge-seg gauge-seg-warn" />
+                <div className="gauge-seg gauge-seg-ok" />
+                <div className="gauge-marker" style={{ left: `${healthGaugePercent(currentHealthBps)}%` }} />
               </div>
-              <div className="metric-sub">Collateral Val: {formatUsd(sim.collateralEth * sim.priceUsd)}</div>
-            </div>
-
-            <div className="metric-tile">
-              <div className="metric-label">Live Health Factor</div>
-              <div className="metric-value mono" data-testid="metric-hf">
-                {formatHealth(currentHealthBps)}
-              </div>
-              <div className="metric-sub">Target Restore: 1.50x (15,000 bps)</div>
-            </div>
-
-            <div className="metric-tile">
-              <div className="metric-label">Collateral / Debt</div>
-              <div className="metric-value mono">
-                {sim.collateralEth.toFixed(2)} ETH
-              </div>
-              <div className="metric-sub">Debt: {formatUsd(sim.debtUsd)}</div>
-            </div>
-
-            <div className="metric-tile">
-              <div className="metric-label">Shield Reserve &amp; Nonce</div>
-              <div className="metric-value mono">{formatUsd(sim.shieldReserveUsd)}</div>
-              <div className="metric-sub">
-                Nonce #{sim.actionNonce} • WARN Streak {sim.warnStreak}/2
+              <div className="gauge-ticks mono">
+                <span>1.00x Liq</span>
+                <span>1.08x Freeze</span>
+                <span>1.20x Rebalance</span>
+                <span>1.35x Warn</span>
+                <span>1.50x+ Safe</span>
               </div>
             </div>
-          </div>
 
-          {/* Health Factor Gauge */}
-          <div className="gauge-wrap">
-            <div className="gauge-bar">
-              <div className="gauge-marker" style={{ left: `${healthGaugePercent(currentHealthBps)}%` }} />
-            </div>
-            <div className="gauge-ticks mono">
-              <span>1.00x Liq</span>
-              <span>1.08x Freeze</span>
-              <span>1.20x Rebalance</span>
-              <span>1.35x Warn</span>
-              <span>1.50x+ Safe</span>
-            </div>
-          </div>
-
-          <div className="grid-3-inner">
-            <div className="metric-tile">
-              <div className="metric-label">Callbacks Fired</div>
-              <div className="metric-value mono" data-testid="metric-callbacks">
-                {sim.totalCallbacksDispatched}
+            <div className="metric-grid-3">
+              <div className="metric-cell">
+                <div className="metric-label">Callbacks Fired</div>
+                <div className="metric-value mono" data-testid="metric-callbacks">
+                  {sim.totalCallbacksDispatched}
+                </div>
+              </div>
+              <div className="metric-cell">
+                <div className="metric-label">Cooldown Blocks</div>
+                <div className="metric-value mono" data-testid="metric-suppressed">
+                  {sim.totalCooldownSuppressions}
+                </div>
+                <div className="metric-sub">{cooldownRemaining}s left (timestamp)</div>
+              </div>
+              <div className="metric-cell">
+                <div className="metric-label">Debt Protected</div>
+                <div className="metric-value mono">{formatUsd(sim.totalDebtReducedUsd)}</div>
               </div>
             </div>
-            <div className="metric-tile">
-              <div className="metric-label">Cooldown Blocks</div>
-              <div className="metric-value mono" data-testid="metric-suppressed">
-                {sim.totalCooldownSuppressions}
+          </div>
+
+          {/* Judge 10-Second Interactive Scenario Deck */}
+          <div className="split-col">
+            <div className="section-header">
+              <div>
+                <div className="section-title">10-Second Judge Stress-Test Deck</div>
+                <div className="section-sub">
+                  Trigger live oracle shocks and inspect stateful escalation, 200ms cooldown immunity, and circuit breaking.
+                </div>
               </div>
-              <div className="metric-sub">{cooldownRemaining}s left (timestamp)</div>
+              <button type="button" className="btn" onClick={() => handleUnfreezeOrReset(true)}>
+                Reset Baseline
+              </button>
             </div>
-            <div className="metric-tile">
-              <div className="metric-label">Debt Protected</div>
-              <div className="metric-value mono">{formatUsd(sim.totalDebtReducedUsd)}</div>
+
+            <div className="scenario-grid">
+              <button
+                type="button"
+                className="btn scenario-btn scenario-warn"
+                data-testid="btn-warn-1"
+                onClick={() => runScenario(2350, 4, "Mild Dip (WARN #1)")}
+              >
+                <span>1. Mild Dip → $2,350</span>
+                <small>HF 1.31x • Logs WARN (1/2), saves gas</small>
+              </button>
+
+              <button
+                type="button"
+                className="btn scenario-btn scenario-accent"
+                data-testid="btn-warn-2"
+                onClick={() => runScenario(2250, 5, "Sustained Dip (WARN #2 → Escalate)")}
+              >
+                <span>2. 2nd Dip → $2,250</span>
+                <small>WARN streak 2/2 → auto-escalates REBALANCE!</small>
+              </button>
+
+              <button
+                type="button"
+                className="btn scenario-btn scenario-accent"
+                data-testid="btn-rebalance"
+                onClick={() => runScenario(2100, 16, "Rebalance Breach ($2,100)")}
+              >
+                <span>3. Breach → $2,100</span>
+                <small>HF 1.17x → Shield + Self-Deleverage to 1.50x</small>
+              </button>
+
+              <button
+                type="button"
+                className="btn scenario-btn scenario-neutral"
+                data-testid="btn-cooldown"
+                onClick={() => runScenario(1620, 3, "200ms Burst (+15 Base Blocks in 3s)")}
+              >
+                <span>4. 200ms Burst Test (+3s)</span>
+                <small>15 Base blocks elapsed, timestamp cooldown holds!</small>
+              </button>
+
+              <button
+                type="button"
+                className="btn scenario-btn scenario-err"
+                data-testid="btn-freeze"
+                onClick={() => runScenario(1250, 2, "Flash Crash → EMERGENCY_FREEZE")}
+              >
+                <span>5. Flash Crash → $1,250</span>
+                <small>Bypasses cooldown → Instant Circuit Breaker!</small>
+              </button>
+
+              <button
+                type="button"
+                className="btn scenario-btn scenario-ok"
+                data-testid="btn-recover"
+                onClick={() => handleUnfreezeOrReset(false)}
+              >
+                <span>6. Top-Up &amp; Unfreeze</span>
+                <small>Restores collateral &amp; unlocks frozen vault</small>
+              </button>
+            </div>
+
+            <div className="slider-row">
+              <span className="mono slider-price">
+                ETH: {formatUsd(customPrice)}
+              </span>
+              <input
+                type="range"
+                aria-label="Custom ETH Price"
+                min="800"
+                max="3200"
+                step="25"
+                value={customPrice}
+                onChange={(e) => setCustomPrice(Number(e.target.value))}
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => runScenario(customPrice, 16, `Custom Shock (${formatUsd(customPrice)})`)}
+              >
+                Emit Oracle Event
+              </button>
+            </div>
+
+            <div className="utility-actions">
+              <button type="button" className="btn" onClick={handleAddShield}>
+                + Top-Up $2,500 Shield Reserve
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => runScenario(sim.priceUsd, 16, "Advance Wall-Clock +16s (80 Base Blocks)")}
+              >
+                Advance Clock +16s
+              </button>
             </div>
           </div>
-        </section>
-
-        {/* Judge 10-Second Interactive Scenario Deck */}
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">10-Second Judge Stress-Test Deck</div>
-              <div className="card-sub">
-                Trigger live oracle shocks and inspect stateful escalation, 200ms cooldown immunity, and circuit breaking.
-              </div>
-            </div>
-            <button type="button" className="btn" onClick={() => handleUnfreezeOrReset(true)}>
-              Reset Baseline
-            </button>
-          </div>
-
-          <div className="scenario-grid">
-            <button
-              type="button"
-              className="btn btn-amber scenario-btn"
-              data-testid="btn-warn-1"
-              onClick={() => runScenario(2350, 4, "Mild Dip (WARN #1)")}
-            >
-              <span>1. Mild Dip → $2,350</span>
-              <small>HF 1.31x • Logs WARN (1/2), saves gas</small>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-cyan scenario-btn"
-              data-testid="btn-warn-2"
-              onClick={() => runScenario(2250, 5, "Sustained Dip (WARN #2 → Escalate)")}
-            >
-              <span>2. 2nd Dip → $2,250</span>
-              <small>WARN streak 2/2 → auto-escalates REBALANCE!</small>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-cyan scenario-btn"
-              data-testid="btn-rebalance"
-              onClick={() => runScenario(2100, 16, "Rebalance Breach ($2,100)")}
-            >
-              <span>3. Breach → $2,100</span>
-              <small>HF 1.17x → Shield + Self-Deleverage to 1.50x</small>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-violet scenario-btn"
-              data-testid="btn-cooldown"
-              onClick={() => runScenario(1620, 3, "200ms Burst (+15 Base Blocks in 3s)")}
-            >
-              <span>4. 200ms Burst Test (+3s)</span>
-              <small>15 Base blocks elapsed, timestamp cooldown holds!</small>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-rose scenario-btn"
-              data-testid="btn-freeze"
-              onClick={() => runScenario(1250, 2, "Flash Crash → EMERGENCY_FREEZE")}
-            >
-              <span>5. Flash Crash → $1,250</span>
-              <small>Bypasses cooldown → Instant Circuit Breaker!</small>
-            </button>
-
-            <button
-              type="button"
-              className="btn scenario-btn"
-              data-testid="btn-recover"
-              onClick={() => handleUnfreezeOrReset(false)}
-            >
-              <span>6. Top-Up &amp; Unfreeze</span>
-              <small>Restores collateral &amp; unlocks frozen vault</small>
-            </button>
-          </div>
-
-          <div className="slider-row">
-            <span className="mono" style={{ fontSize: "0.78rem", minWidth: "92px" }}>
-              ETH: {formatUsd(customPrice)}
-            </span>
-            <input
-              type="range"
-              aria-label="Custom ETH Price"
-              min="800"
-              max="3200"
-              step="25"
-              value={customPrice}
-              onChange={(e) => setCustomPrice(Number(e.target.value))}
-            />
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => runScenario(customPrice, 16, `Custom Shock (${formatUsd(customPrice)})`)}
-            >
-              Emit Oracle Event
-            </button>
-          </div>
-
-          <div style={{ marginTop: "10px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button type="button" className="btn" onClick={handleAddShield}>
-              + Top-Up $2,500 Shield Reserve
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => runScenario(sim.priceUsd, 16, "Advance Wall-Clock +16s (80 Base Blocks)")}
-            >
-              Advance Clock +16s
-            </button>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* Live Execution Trace Audit Log */}
-      <section className="card">
-        <div className="card-header">
+      <section className="section-block">
+        <div className="section-header">
           <div>
-            <div className="card-title">Cross-Chain Reactive Execution Audit Log</div>
-            <div className="card-sub">
+            <div className="section-title">Cross-Chain Reactive Execution Audit Log</div>
+            <div className="section-sub">
               Every origin log, Reactive Lasna evaluation, gas budget check (&lt;900k cap), and destination callback receipt.
             </div>
           </div>
-          <span className="mono card-sub">{sim.events.length} events captured</span>
+          <span className="mono section-sub">{sim.events.length} events captured</span>
         </div>
 
         <div className="table-wrap">
@@ -757,7 +775,7 @@ export default function App() {
             <tbody data-testid="audit-tbody">
               {sim.events.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ color: "var(--text-muted)", textAlign: "center", padding: "18px" }}>
+                  <td colSpan="9" className="empty-cell">
                     Trigger any scenario above (e.g. <strong>1. Mild Dip</strong> → <strong>2. 2nd Dip</strong> →{" "}
                     <strong>5. Flash Crash</strong>) to populate the 3-hop Reactive Omni audit trail.
                   </td>
@@ -779,8 +797,8 @@ export default function App() {
                         : "—"}
                     </td>
                     <td className="mono">
-                      <span style={{ color: "#6ee7b7" }}>{(ev.omniLatencyMs / 1000).toFixed(2)}s</span> vs{" "}
-                      <span style={{ color: "#fda4af" }}>{(ev.legacyLatencyMs / 1000).toFixed(2)}s</span>
+                      <span className="text-ok">{(ev.omniLatencyMs / 1000).toFixed(2)}s</span> vs{" "}
+                      <span className="text-err">{(ev.legacyLatencyMs / 1000).toFixed(2)}s</span>
                     </td>
                     <td className="mono">{ev.gasReactEst.toLocaleString()}</td>
                     <td className="mono">{ev.nonce ? `#${ev.nonce}` : "—"}</td>
@@ -794,15 +812,15 @@ export default function App() {
       </section>
 
       {/* Verified Reactive Omni Testnet Registry */}
-      <section className="card">
-        <div className="card-header">
+      <section className="section-block">
+        <div className="section-header">
           <div>
-            <div className="card-title">Verified Reactive Omni Network Registry (Live RPC Bytecode Checked)</div>
-            <div className="card-sub">
+            <div className="section-title">Verified Reactive Omni Network Registry (Live RPC Bytecode Checked)</div>
+            <div className="section-sub">
               Built natively against <code className="mono">reactive-lib-omni</code> (v2 System Contract + V_1_0 Callbacks) — zero deprecated legacy primitives.
             </div>
           </div>
-          <span className="badge badge-emerald">31/31 Security Tests Passing</span>
+          <span className="badge badge-ok">31/31 Security Tests Passing</span>
         </div>
 
         <div className="spec-grid">

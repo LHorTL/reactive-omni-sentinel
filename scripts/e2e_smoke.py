@@ -115,9 +115,13 @@ def main():
             mpage.wait_for_selector('[data-testid="btn-rebalance"]', timeout=10000)
             mpage.click('[data-testid="btn-rebalance"]')
             assert mpage.locator('[data-testid="pipeline-tier"]').inner_text().strip() == "REBALANCE"
-            # Verify no horizontal overflow on mobile viewport
+            # Verify no horizontal overflow on mobile viewport (both tabs)
             overflow = mpage.evaluate("document.documentElement.scrollWidth > window.innerWidth + 2")
-            assert not overflow, "Detected horizontal overflow on 390px mobile viewport!"
+            assert not overflow, "Detected horizontal overflow on 390px mobile viewport (Simulator tab)!"
+            mpage.get_by_role("tab", name="Live Testnet RPC").click()
+            assert mpage.locator("#vault-addr").is_visible()
+            overflow_live = mpage.evaluate("document.documentElement.scrollWidth > window.innerWidth + 2")
+            assert not overflow_live, "Detected horizontal overflow on 390px mobile viewport (Live Testnet tab)!"
             mctx.close()
 
             browser.close()
