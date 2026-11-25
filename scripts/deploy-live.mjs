@@ -101,6 +101,20 @@ async function main() {
   const reactiveArtifact = loadArtifact("OmniGuardReactive");
   const vaultArtifact = loadArtifact("OriginPriceVault");
 
+  const lasnaFee = await lasnaProvider.getFeeData();
+  const lasnaTip =
+    lasnaFee.maxPriorityFeePerGas && lasnaFee.maxPriorityFeePerGas > 0n
+      ? lasnaFee.maxPriorityFeePerGas
+      : 1_000_000_000n;
+  const lasnaMaxFee =
+    lasnaFee.maxFeePerGas && lasnaFee.maxFeePerGas >= lasnaTip
+      ? lasnaFee.maxFeePerGas
+      : (lasnaFee.gasPrice || 100_000_000_000n) + lasnaTip;
+  const lasnaOverrides = {
+    maxPriorityFeePerGas: lasnaTip,
+    maxFeePerGas: lasnaMaxFee,
+  };
+
   // Step 1: Deploy OmniGuardReactive on Reactive Lasna (5318007)
   console.log("\n[1/3] Deploying OmniGuardReactive on Reactive Lasna (5318007)...");
   const ReactiveFactory = new ethers.ContractFactory(
@@ -114,7 +128,7 @@ async function main() {
     ethers.ZeroAddress,
     ethers.ZeroAddress,
     500000n,
-    { value: reactiveFund }
+    { value: reactiveFund, ...lasnaOverrides }
   );
   const reactiveDeployTx = reactive.deploymentTransaction();
   await reactive.waitForDeployment();
@@ -144,7 +158,7 @@ async function main() {
 
   // Step 3: Subscribe OmniGuardReactive to OriginPriceVault on Reactive Lasna
   console.log("\n[3/3] Calling configureVaultAndSubscribe() on Reactive Lasna...");
-  const subTx = await reactive.configureVaultAndSubscribe(vaultAddr, vaultAddr);
+  const subTx = await reactive.configureVaultAndSubscribe(vaultAddr, vaultAddr, lasnaOverrides);
   await subTx.wait();
   console.log(`  Subscribe TX:      https://lasna.reactscan.net/tx/${subTx.hash}`);
 

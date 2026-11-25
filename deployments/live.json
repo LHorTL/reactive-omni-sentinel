@@ -1,0 +1,22 @@
+{
+  "deployedAt": "2026-11-25T04:48:23.189Z",
+  "deployer": "0xea7418230AD24b7E47d05D08Df50522B79C387E5",
+  "originChainId": 84532,
+  "reactiveChainId": 5318007,
+  "callbackProxy": "0x476F44b11F5C942c58f4c8E3d0300E5710743585",
+  "systemContract": "0x8888888888888888888888888888888888888888",
+  "omniGuardReactive": "0xf9D56644f95b681a6Aa13AEE38dD406824dF71Ab",
+  "originPriceVault": "0x841ADD49FC6291f205F4A8B0CBae3d85aCa3c379",
+  "txs": {
+    "reactiveDeploy": "0x300aa64841677c9768645acd39fe1e153a801f594ac415aaf27b091075a051c2",
+    "vaultDeploy": "0xf4c3a625e8b53a875f67853f81257e586ceb1d5a680bbd695eb86ff483eaab33",
+    "subscribe": "0x4cee795a8d0c33a826a9900c4f7a8adf887d34085557ac60fc2f6e625105d4a5"
+  },
+  "liveLoopProof": {
+    "recordedAt": "2026-11-25T04:49:06.306Z",
+    "originTx": "0x78c52c81c02d8168734ec0dc970aacb70a93c828e226773c0231d76a8f6d725b",
+    "reactiveTx": "0x47d830253656b87d2d850ee98b756386a39b24e0f8bb123e23263b0baee20d0b",
+    "callbackTx": "0x1c860136825923e7bef76537b8fb9da22b94ab7102269f9b524349a2080dd979",
+    "endToEndWallClockMs": 10460
+  }
+}

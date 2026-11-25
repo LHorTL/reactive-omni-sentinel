@@ -6,6 +6,7 @@ and asserts ZERO console errors and ZERO uncaught page errors.
 """
 
 import http.server
+import json
 import os
 import socketserver
 import sys
@@ -63,6 +64,22 @@ def main():
             page.wait_for_selector('[data-testid="status-banner"]', timeout=10000)
 
             assert "OmniGuard Sentinel" in page.content(), "Missing main title"
+
+            live_manifest = ROOT / "deployments" / "live.json"
+            has_live_manifest = live_manifest.exists()
+            if has_live_manifest:
+                manifest = json.loads(live_manifest.read_text(encoding="utf-8"))
+                proof = manifest.get("liveLoopProof") or {}
+                # App boots directly into Live Testnet RPC tab when deployed=true
+                assert page.locator("#vault-addr").is_visible()
+                assert page.locator("#vault-addr").input_value() == manifest.get("originPriceVault")
+                assert page.locator("#reactive-addr").input_value() == manifest.get("omniGuardReactive")
+                for tx_key in ("originTx", "reactiveTx", "callbackTx"):
+                    tx_hash = proof.get(tx_key)
+                    if tx_hash:
+                        assert page.locator(f'a[href*="{tx_hash}"]').count() >= 1, f"Missing live explorer link for {tx_key}"
+                page.get_by_role("tab", name="Interactive Simulator").click()
+
             assert page.locator('[data-testid="metric-callbacks"]').inner_text().strip() == "0"
 
             # Scenario 1: Mild Dip -> WARN (1/2), 0 callbacks
@@ -94,11 +111,12 @@ def main():
             rows = page.locator('[data-testid="audit-tbody"] tr').count()
             assert rows == 4, f"Expected 4 audit rows, got {rows}"
 
-            # Verify simulated TX hashes do NOT render as dead external explorer links
-            dead_tx_links = page.locator('a[href*="basescan.org/tx/"], a[href*="reactscan.net/tx/"]').count()
-            assert dead_tx_links == 0, f"Simulated TX hashes must not link to live explorers (found {dead_tx_links})"
-            assert page.locator('[data-testid="sim-origin-tx"]').is_visible()
-            assert page.locator('[data-testid="sim-reactive-tx"]').is_visible()
+            # Verify simulated TX hashes in the audit table do NOT render as dead external explorer links
+            dead_sim_tx_links = page.locator('[data-testid="audit-tbody"] a[href*="/tx/"]').count()
+            assert dead_sim_tx_links == 0, f"Simulated TX hashes must not link to live explorers (found {dead_sim_tx_links})"
+            if not has_live_manifest:
+                assert page.locator('[data-testid="sim-origin-tx"]').is_visible()
+                assert page.locator('[data-testid="sim-reactive-tx"]').is_visible()
 
             # Check Live Testnet tab renders cleanly
             page.get_by_role("tab", name="Live Testnet RPC").click()
@@ -112,6 +130,11 @@ def main():
             mpage.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
             mpage.on("pageerror", lambda err: page_errors.append(str(err)))
             mpage.goto(url, wait_until="domcontentloaded", timeout=15000)
+            if has_live_manifest:
+                mpage.wait_for_selector("#vault-addr", timeout=10000)
+                overflow_live = mpage.evaluate("document.documentElement.scrollWidth > window.innerWidth + 2")
+                assert not overflow_live, "Detected horizontal overflow on 390px mobile viewport (Live Testnet tab)!"
+                mpage.get_by_role("tab", name="Interactive Simulator").click()
             mpage.wait_for_selector('[data-testid="btn-rebalance"]', timeout=10000)
             mpage.click('[data-testid="btn-rebalance"]')
             assert mpage.locator('[data-testid="pipeline-tier"]').inner_text().strip() == "REBALANCE"

@@ -41,7 +41,9 @@ export default function App() {
   const [sim, setSim] = useState(() => createInitialSimState());
   const [customPrice, setCustomPrice] = useState(2100);
   const [statusMsg, setStatusMsg] = useState(
-    "Interactive Simulation Mode active — run any scenario below to trace all 3 Reactive Omni hops in real time."
+    LIVE_DEPLOYMENT.deployed
+      ? "Live Reactive Omni contracts active on Base Sepolia (84532) & Reactive Lasna (5318007) — inspect on-chain 3-hop proofs or switch to Interactive Simulator."
+      : "Interactive Simulation Mode active — run any scenario below to trace all 3 Reactive Omni hops in real time."
   );
 
   // Live RPC heartbeat (silent fallback so offline environments produce 0 console errors)
@@ -97,6 +99,51 @@ export default function App() {
     return () => {
       active = false;
       clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!LIVE_DEPLOYMENT.deployed || !ethers.isAddress(vaultAddr) || !ethers.isAddress(reactiveAddr)) {
+      return;
+    }
+    let active = true;
+    async function initialLiveSync() {
+      try {
+        const baseProvider = new ethers.JsonRpcProvider(NETWORKS.baseSepolia.rpcUrl, NETWORKS.baseSepolia.chainId, {
+          staticNetwork: true,
+        });
+        const lasnaProvider = new ethers.JsonRpcProvider(
+          NETWORKS.reactiveLasna.rpcUrl,
+          NETWORKS.reactiveLasna.chainId,
+          { staticNetwork: true }
+        );
+        const vault = new ethers.Contract(vaultAddr, VAULT_ABI, baseProvider);
+        const reactive = new ethers.Contract(reactiveAddr, REACTIVE_ABI, lasnaProvider);
+        const [price, protections, trips, subscribed, eventsProcessed, callbacksReq] = await Promise.all([
+          vault.collateralPriceUsd(),
+          vault.totalProtectionsExecuted(),
+          vault.totalCircuitBreakerTrips(),
+          reactive.subscribed(),
+          reactive.totalEventsProcessed(),
+          reactive.totalCallbacksRequested(),
+        ]);
+        if (active) {
+          setLiveData({
+            priceUsd: Number(ethers.formatUnits(price, 18)),
+            protections: Number(protections),
+            trips: Number(trips),
+            subscribed,
+            eventsProcessed: Number(eventsProcessed),
+            callbacksReq: Number(callbacksReq),
+          });
+        }
+      } catch {
+        // Silent fallback so offline environments produce 0 console errors
+      }
+    }
+    initialLiveSync();
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -215,8 +262,12 @@ export default function App() {
     }
     setBusy(true);
     try {
-      const baseProvider = new ethers.JsonRpcProvider(NETWORKS.baseSepolia.rpcUrl);
-      const lasnaProvider = new ethers.JsonRpcProvider(NETWORKS.reactiveLasna.rpcUrl);
+      const baseProvider = new ethers.JsonRpcProvider(NETWORKS.baseSepolia.rpcUrl, NETWORKS.baseSepolia.chainId, {
+        staticNetwork: true,
+      });
+      const lasnaProvider = new ethers.JsonRpcProvider(NETWORKS.reactiveLasna.rpcUrl, NETWORKS.reactiveLasna.chainId, {
+        staticNetwork: true,
+      });
       const vault = new ethers.Contract(vaultAddr, VAULT_ABI, baseProvider);
       const reactive = new ethers.Contract(reactiveAddr, REACTIVE_ABI, lasnaProvider);
 
@@ -377,6 +428,28 @@ export default function App() {
                 <div className="metric-value mono">{liveData.protections}</div>
                 <div className="metric-sub">{liveData.trips} circuit breaker trips</div>
               </div>
+            </div>
+          ) : LIVE_DEPLOYMENT.deployed ? (
+            <div className="section-sub">
+              Deployed live on Base Sepolia (
+              <a
+                className="tx-link mono"
+                href={`${NETWORKS.baseSepolia.explorerUrl}/address/${vaultAddr}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                BaseScan ↗
+              </a>
+              ) &amp; Reactive Lasna (
+              <a
+                className="tx-link mono"
+                href={`${NETWORKS.reactiveLasna.explorerUrl}/address/${reactiveAddr}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                ReactScan ↗
+              </a>
+              ). Click <strong>Sync On-Chain State</strong> to query storage directly via RPC.
             </div>
           ) : (
             <div className="section-sub">

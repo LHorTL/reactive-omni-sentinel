@@ -81,10 +81,10 @@ export const REACTIVE_ABI = [
 
 // Updated automatically when live testnet deployment succeeds (via scripts/deploy-live.mjs).
 export const LIVE_DEPLOYMENT = {
-  deployed: false,
-  originVault: "",
-  reactiveSentinel: "",
-  sampleOriginTx: "",
-  sampleReactiveTx: "",
-  sampleCallbackTx: "",
+  deployed: true,
+  originVault: "0x841ADD49FC6291f205F4A8B0CBae3d85aCa3c379",
+  reactiveSentinel: "0xf9D56644f95b681a6Aa13AEE38dD406824dF71Ab",
+  sampleOriginTx: "0x78c52c81c02d8168734ec0dc970aacb70a93c828e226773c0231d76a8f6d725b",
+  sampleReactiveTx: "0x47d830253656b87d2d850ee98b756386a39b24e0f8bb123e23263b0baee20d0b",
+  sampleCallbackTx: "0x1c860136825923e7bef76537b8fb9da22b94ab7102269f9b524349a2080dd979",
 };

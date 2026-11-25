@@ -85,33 +85,31 @@ Verified on **Desktop (`1440×900`)** and **Mobile (`390×844`)**: all 6 interac
 
 ---
 
-## Live Testnet Deployment Guide (Base Sepolia + Reactive Lasna)
+## Live Testnet Deployment & Verified 3-Hop Proof (Base Sepolia + Reactive Lasna)
 
-> **Faucet Recon Note**: Public Base Sepolia ETH faucets (Coinbase CDP, Alchemy, QuickNode) require account login or CAPTCHA verification, so automated funding was intentionally skipped in compliance with security guidelines. Once a single Base Sepolia ETH drip (~0.05 ETH) lands on the deployer address, **the entire Lasna lREACT bridge + dual-chain deployment + live 3-hop TX proof runs in 3 automated commands**!
+**LIVE ON-CHAIN (`2026-11-25`)**: Both contracts are deployed, subscribed via `SYSTEM` (`0x8888...8888`), and verified end-to-end with a real cross-chain 3-hop `Origin -> Reactive -> Callback` deleverage transaction restoring position Health Factor to **`1.5000x`** in **`10.46s` wall-clock time** (`deployments/live.json` & `web/src/config/networks.js` synced):
 
-### One-Time Setup & Live Execution
-1. **Generate a git-ignored deployer wallet** (private key written only to `.env`, never printed):
-   ```bash
-   npm run wallet:new
-   ```
-   *(Current local deployer ready to fund: `0xea7418230AD24b7E47d05D08Df50522B79C387E5`)*
-2. **Fund `~0.05 ETH` on Base Sepolia (`84532`)** via any public faucet:
-   - [Coinbase CDP Base Sepolia Faucet](https://portal.cdp.coinbase.com/products/faucet)
-   - [Alchemy Base Sepolia Faucet](https://www.alchemy.com/faucets/base-sepolia)
-   - [QuickNode Base Sepolia Faucet](https://faucet.quicknode.com/base/sepolia)
-3. **Bridge `0.02 Base Sepolia ETH → 2.0 Lasna lREACT` automatically** via official `ReactiveFaucetL1` (`0x2afaFD298b23b62760711756088F75B7409f5967`):
-   ```bash
-   npm run faucet:bridge
-   ```
-4. **Deploy both contracts & activate live Lasna subscription**:
-   ```bash
-   npm run deploy:live
-   ```
-5. **Execute & record the real 3-hop Origin → Reactive → Callback TX loop** (writes all 3 explorer hashes into `deployments/live.json`):
-   ```bash
-   npm run trigger:live
-   npm run status:live
-   ```
+### 1. Live Deployed Contracts & Subscription Receipts
+
+| Chain | Contract / Action | Address / TX Hash | Explorer |
+| :--- | :--- | :--- | :--- |
+| **Reactive Lasna (`5318007`)** | `OmniGuardReactive` | `0xf9D56644f95b681a6Aa13AEE38dD406824dF71Ab` | [Deploy TX `0x300a...51c2`](https://lasna.reactscan.net/tx/0x300aa64841677c9768645acd39fe1e153a801f594ac415aaf27b091075a051c2) |
+| **Base Sepolia (`84532`)** | `OriginPriceVault` | `0x841ADD49FC6291f205F4A8B0CBae3d85aCa3c379` | [Deploy TX `0xf4c3...ab33`](https://sepolia.basescan.org/tx/0xf4c3a625e8b53a875f67853f81257e586ceb1d5a680bbd695eb86ff483eaab33) |
+| **Reactive Lasna (`5318007`)** | `configureVaultAndSubscribe()` | `SYSTEM.subscribe(84532, 0x841A...c379)` | [Subscribe TX `0x4cee...d4a5`](https://lasna.reactscan.net/tx/0x4cee795a8d0c33a826a9900c4f7a8adf887d34085557ac60fc2f6e625105d4a5) |
+
+### 2. Verified Live 3-Hop Cross-Chain Execution Proof (`1.3888x -> 1.1666x -> 1.5000x`)
+
+| Hop | Chain | Action & Outcome | Live Explorer TX |
+| :--- | :--- | :--- | :--- |
+| **Hop 1 (Origin)** | Base Sepolia (`84532`) | Oracle shock `$2,500 -> $2,100` (block `#63301302`), emitting `HealthFactorChanged` (`1.1666x` REBALANCE breach) | [`0x78c52c81...f6d725b`](https://sepolia.basescan.org/tx/0x78c52c81c02d8168734ec0dc970aacb70a93c828e226773c0231d76a8f6d725b) |
+| **Hop 2 (Reactive)** | Reactive Lasna (`5318007`) | `OmniGuardReactive.react()` classifies `REBALANCE` and dispatches `SYSTEM.requestCallbackV_1_0` (`7,060 ms`) | [`0x47d83025...aee20d0b`](https://lasna.reactscan.net/tx/0x47d830253656b87d2d850ee98b756386a39b24e0f8bb123e23263b0baee20d0b) |
+| **Hop 3 (Callback)** | Base Sepolia (`84532`) | CallbackProxy (`0x476F...3585`) invokes `executeEmergencyDeleverage()` -> **Restored Health Factor: `1.5000x`** (`10,459 ms` total) | [`0x1c860136...080dd979`](https://sepolia.basescan.org/tx/0x1c860136825923e7bef76537b8fb9da22b94ab7102269f9b524349a2080dd979) |
+
+### Reproducing / Redeploying From Scratch
+1. Generate a git-ignored deployer wallet (`.env`, zero key printing): `npm run wallet:new`
+2. Bridge Base Sepolia ETH -> Lasna `lREACT` via `ReactiveFaucetL1` (`0x2afaFD298b23b62760711756088F75B7409f5967`): `npm run faucet:bridge`
+3. Deploy both contracts & activate live Lasna subscription: `npm run deploy:live`
+4. Execute & record a live 3-hop loop and verify status: `npm run trigger:live && npm run status:live`
 
 ---
 
@@ -125,7 +123,7 @@ reactive-omni-sentinel/
 │   ├── reactive-lib/                 # Vendored official Reactive-Network/reactive-lib-omni v2
 │   └── mocks/                        # Exact 0x8888...8888 SystemContract, CallbackProxy & Reentrancy mocks
 ├── test/
-│   └── OmniGuard.test.js             # 28 unit, integration & adversarial security tests
+│   └── OmniGuard.test.js             # 31 unit, integration & adversarial security tests
 ├── scripts/
 │   ├── deploy-local.js               # Local 3-hop Hardhat proof
 │   ├── generate-deployer.mjs         # Safe .env deployer generator (zero key printing)
