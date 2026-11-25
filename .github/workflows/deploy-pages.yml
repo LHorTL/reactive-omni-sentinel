@@ -32,6 +32,11 @@ jobs:
           npm --prefix web run build
           test -f web/dist/index.html
 
+      - name: Preserve Published Demo Video Asset
+        run: |
+          curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/download/v1.0.0/omniguard-demo.mp4" -o web/dist/omniguard-demo.mp4
+          test -s web/dist/omniguard-demo.mp4
+
       - name: Deploy web/dist to gh-pages branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

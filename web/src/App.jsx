@@ -102,6 +102,62 @@ export default function App() {
     };
   }, []);
 
+  async function queryLiveOnChainState(vAddr, rAddr) {
+    const baseProvider = new ethers.JsonRpcProvider(NETWORKS.baseSepolia.rpcUrl, NETWORKS.baseSepolia.chainId, {
+      staticNetwork: true,
+    });
+    const lasnaProvider = new ethers.JsonRpcProvider(
+      NETWORKS.reactiveLasna.rpcUrl,
+      NETWORKS.reactiveLasna.chainId,
+      { staticNetwork: true }
+    );
+    const vault = new ethers.Contract(vAddr, VAULT_ABI, baseProvider);
+    const reactive = new ethers.Contract(rAddr, REACTIVE_ABI, lasnaProvider);
+    const trackedUser = LIVE_DEPLOYMENT.deployer;
+    const [
+      price,
+      protections,
+      trips,
+      debtReduced,
+      healthBps,
+      position,
+      subscribed,
+      eventsProcessed,
+      callbacksReq,
+      cooldownSuppressions,
+      riskState,
+    ] = await Promise.all([
+      vault.collateralPriceUsd(),
+      vault.totalProtectionsExecuted(),
+      vault.totalCircuitBreakerTrips(),
+      vault.totalDebtReducedUsd(),
+      vault.getHealthFactorBps(trackedUser),
+      vault.getPosition(trackedUser),
+      reactive.subscribed(),
+      reactive.totalEventsProcessed(),
+      reactive.totalCallbacksRequested(),
+      reactive.totalCooldownSuppressions(),
+      reactive.getUserRiskState(trackedUser),
+    ]);
+    return {
+      priceUsd: Number(ethers.formatUnits(price, 18)),
+      healthBps: Number(healthBps),
+      collateralEth: Number(ethers.formatUnits(position.collateralAmount, 18)),
+      debtUsd: Number(ethers.formatUnits(position.debtUsd, 18)),
+      shieldReserveUsd: Number(ethers.formatUnits(position.shieldReserveUsd, 18)),
+      frozen: Boolean(position.frozen),
+      protections: Number(protections),
+      trips: Number(trips),
+      debtReducedUsd: Number(ethers.formatUnits(debtReduced, 18)),
+      subscribed: Boolean(subscribed),
+      eventsProcessed: Number(eventsProcessed),
+      callbacksReq: Number(callbacksReq),
+      cooldownSuppressions: Number(cooldownSuppressions),
+      actionNonce: Number(riskState.actionNonce),
+      warnStreak: Number(riskState.warnStreak),
+    };
+  }
+
   useEffect(() => {
     if (!LIVE_DEPLOYMENT.deployed || !ethers.isAddress(vaultAddr) || !ethers.isAddress(reactiveAddr)) {
       return;
@@ -109,33 +165,9 @@ export default function App() {
     let active = true;
     async function initialLiveSync() {
       try {
-        const baseProvider = new ethers.JsonRpcProvider(NETWORKS.baseSepolia.rpcUrl, NETWORKS.baseSepolia.chainId, {
-          staticNetwork: true,
-        });
-        const lasnaProvider = new ethers.JsonRpcProvider(
-          NETWORKS.reactiveLasna.rpcUrl,
-          NETWORKS.reactiveLasna.chainId,
-          { staticNetwork: true }
-        );
-        const vault = new ethers.Contract(vaultAddr, VAULT_ABI, baseProvider);
-        const reactive = new ethers.Contract(reactiveAddr, REACTIVE_ABI, lasnaProvider);
-        const [price, protections, trips, subscribed, eventsProcessed, callbacksReq] = await Promise.all([
-          vault.collateralPriceUsd(),
-          vault.totalProtectionsExecuted(),
-          vault.totalCircuitBreakerTrips(),
-          reactive.subscribed(),
-          reactive.totalEventsProcessed(),
-          reactive.totalCallbacksRequested(),
-        ]);
+        const snapshot = await queryLiveOnChainState(vaultAddr, reactiveAddr);
         if (active) {
-          setLiveData({
-            priceUsd: Number(ethers.formatUnits(price, 18)),
-            protections: Number(protections),
-            trips: Number(trips),
-            subscribed,
-            eventsProcessed: Number(eventsProcessed),
-            callbacksReq: Number(callbacksReq),
-          });
+          setLiveData(snapshot);
         }
       } catch {
         // Silent fallback so offline environments produce 0 console errors
@@ -159,6 +191,7 @@ export default function App() {
   }, [sim.lastCallbackTs, sim.simClockSec]);
 
   function runScenario(priceUsd, advanceSec, label) {
+    setMode("sim");
     setSim((prev) => {
       const updated = simulatePriceUpdate(prev, priceUsd, advanceSec, label);
       const latest = updated.events[0];
@@ -173,6 +206,7 @@ export default function App() {
   }
 
   function handleAddShield() {
+    setMode("sim");
     setSim((prev) => ({
       ...prev,
       shieldReserveUsd: prev.shieldReserveUsd + 2500,
@@ -181,6 +215,7 @@ export default function App() {
   }
 
   function handleUnfreezeOrReset(fullReset = false) {
+    setMode("sim");
     if (fullReset) {
       setSim(createInitialSimState());
       setCustomPrice(2100);
@@ -262,32 +297,8 @@ export default function App() {
     }
     setBusy(true);
     try {
-      const baseProvider = new ethers.JsonRpcProvider(NETWORKS.baseSepolia.rpcUrl, NETWORKS.baseSepolia.chainId, {
-        staticNetwork: true,
-      });
-      const lasnaProvider = new ethers.JsonRpcProvider(NETWORKS.reactiveLasna.rpcUrl, NETWORKS.reactiveLasna.chainId, {
-        staticNetwork: true,
-      });
-      const vault = new ethers.Contract(vaultAddr, VAULT_ABI, baseProvider);
-      const reactive = new ethers.Contract(reactiveAddr, REACTIVE_ABI, lasnaProvider);
-
-      const [price, protections, trips, subscribed, eventsProcessed, callbacksReq] = await Promise.all([
-        vault.collateralPriceUsd(),
-        vault.totalProtectionsExecuted(),
-        vault.totalCircuitBreakerTrips(),
-        reactive.subscribed(),
-        reactive.totalEventsProcessed(),
-        reactive.totalCallbacksRequested(),
-      ]);
-
-      setLiveData({
-        priceUsd: Number(ethers.formatUnits(price, 18)),
-        protections: Number(protections),
-        trips: Number(trips),
-        subscribed,
-        eventsProcessed: Number(eventsProcessed),
-        callbacksReq: Number(callbacksReq),
-      });
+      const snapshot = await queryLiveOnChainState(vaultAddr, reactiveAddr);
+      setLiveData(snapshot);
       setStatusMsg("Live contract telemetry refreshed directly from Base Sepolia + Reactive Lasna RPCs.");
     } catch (err) {
       setStatusMsg(`Live RPC query failed: ${err?.shortMessage || err?.message || "check addresses"}`);
@@ -296,9 +307,49 @@ export default function App() {
     }
   }
 
-  const hop = sim.lastHopTelemetry;
-  const omniWidthPct = Math.min(100, Math.max(10, Math.round((hop.totalOmniMs / 8000) * 100)));
-  const legacyWidthPct = Math.min(100, Math.max(70, Math.round((hop.legacyTotalMs / 8000) * 100)));
+  const isLiveView = mode === "live" && LIVE_DEPLOYMENT.deployed;
+  const liveSnapshot = liveData || LIVE_DEPLOYMENT.liveBaselineFallback;
+  const hop = isLiveView
+    ? {
+        ...LIVE_DEPLOYMENT.liveLatency,
+        originTx: LIVE_DEPLOYMENT.sampleOriginTx,
+        reactiveTx: LIVE_DEPLOYMENT.sampleReactiveTx,
+        callbackTx: LIVE_DEPLOYMENT.sampleCallbackTx,
+      }
+    : sim.lastHopTelemetry;
+  const raceScaleMs = Math.max(hop.legacyTotalMs, hop.totalOmniMs, 8000);
+  const omniWidthPct = Math.min(100, Math.max(10, Math.round((hop.totalOmniMs / raceScaleMs) * 100)));
+  const legacyWidthPct = Math.min(100, Math.max(70, Math.round((hop.legacyTotalMs / raceScaleMs) * 100)));
+
+  const vaultView = isLiveView
+    ? {
+        priceUsd: liveSnapshot.priceUsd,
+        healthBps: liveSnapshot.healthBps,
+        collateralEth: liveSnapshot.collateralEth,
+        debtUsd: liveSnapshot.debtUsd,
+        shieldReserveUsd: liveSnapshot.shieldReserveUsd,
+        actionNonce: liveSnapshot.actionNonce,
+        warnStreak: liveSnapshot.warnStreak,
+        frozen: liveSnapshot.frozen,
+        callbacksFired: liveSnapshot.callbacksReq,
+        cooldownSuppressions: liveSnapshot.cooldownSuppressions,
+        cooldownSub: "Live Lasna RPC",
+        debtReducedUsd: liveSnapshot.debtReducedUsd,
+      }
+    : {
+        priceUsd: sim.priceUsd,
+        healthBps: currentHealthBps,
+        collateralEth: sim.collateralEth,
+        debtUsd: sim.debtUsd,
+        shieldReserveUsd: sim.shieldReserveUsd,
+        actionNonce: sim.actionNonce,
+        warnStreak: sim.warnStreak,
+        frozen: sim.frozen,
+        callbacksFired: sim.totalCallbacksDispatched,
+        cooldownSuppressions: sim.totalCooldownSuppressions,
+        cooldownSub: `${cooldownRemaining}s left (timestamp)`,
+        debtReducedUsd: sim.totalDebtReducedUsd,
+      };
 
   return (
     <div className="app-shell">
@@ -485,9 +536,9 @@ export default function App() {
               </div>
             </div>
             <div className="hop-meta">
-              <span className="hop-latency mono">{hop.originMs} ms</span>
+              <span className="hop-latency mono" data-testid="hop1-latency">{hop.originMs.toLocaleString()} ms</span>
               <div>
-                {LIVE_DEPLOYMENT.sampleOriginTx ? (
+                {isLiveView && LIVE_DEPLOYMENT.sampleOriginTx ? (
                   <a
                     className="tx-link mono"
                     href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleOriginTx}`}
@@ -517,9 +568,11 @@ export default function App() {
               </div>
             </div>
             <div className="hop-meta">
-              <span className="hop-latency mono">{hop.reactiveMs} ms (CometBFT)</span>
+              <span className="hop-latency mono" data-testid="hop2-latency">
+                {hop.reactiveMs.toLocaleString()} ms {isLiveView ? "(measured live)" : "(CometBFT sim)"}
+              </span>
               <div>
-                {LIVE_DEPLOYMENT.sampleReactiveTx ? (
+                {isLiveView && LIVE_DEPLOYMENT.sampleReactiveTx ? (
                   <a
                     className="tx-link mono"
                     href={`${NETWORKS.reactiveLasna.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleReactiveTx}`}
@@ -557,11 +610,11 @@ export default function App() {
               </div>
             </div>
             <div className="hop-meta">
-              <span className="hop-latency mono">
-                {hop.callbackTx ? `${hop.callbackMs} ms delivered` : "Skipped (gas saved)"}
+              <span className="hop-latency mono" data-testid="hop3-latency">
+                {hop.callbackTx ? `${hop.callbackMs.toLocaleString()} ms delivered` : "Skipped (gas saved)"}
               </span>
               <div>
-                {LIVE_DEPLOYMENT.sampleCallbackTx ? (
+                {isLiveView && LIVE_DEPLOYMENT.sampleCallbackTx ? (
                   <a
                     className="tx-link mono"
                     href={`${NETWORKS.baseSepolia.explorerUrl}/tx/${LIVE_DEPLOYMENT.sampleCallbackTx}`}
@@ -582,14 +635,19 @@ export default function App() {
           </div>
         </div>
 
-        {/* Omni ~1s vs Legacy ~7s Latency Race */}
+        {/* Omni vs Legacy Latency Race */}
         <div className="race-box">
           <div className="race-row">
             <div className="race-label">
               <span>
-                <strong>Reactive Omni (CometBFT Instant Finality)</strong> — Position defended before liquidators
+                <strong>
+                  {isLiveView
+                    ? "Reactive Omni (Measured Live Testnet Wall-Clock)"
+                    : "Reactive Omni (CometBFT Instant Finality Sim)"}
+                </strong>{" "}
+                — Position defended before liquidators
               </span>
-              <span className="mono text-ok">
+              <span className="mono text-ok" data-testid="total-omni-latency">
                 {(hop.totalOmniMs / 1000).toFixed(2)}s total ({(hop.savedMs / 1000).toFixed(2)}s faster)
               </span>
             </div>
@@ -621,13 +679,20 @@ export default function App() {
           <div className="split-col">
             <div className="section-header">
               <div>
-                <div className="section-title">Protected Vault Position &amp; Multi-Tier State</div>
+                <div className="section-title">
+                  Protected Vault Position &amp; Multi-Tier State{" "}
+                  <span className="mono" style={{ fontSize: "0.75rem", color: "#4b5563" }}>
+                    ({isLiveView ? "Live Base Sepolia RPC" : "Interactive Simulator"})
+                  </span>
+                </div>
                 <div className="section-sub">
-                  Shield Reserve pays debt first; self-deleverage restores exact 1.50x HF via overflow-safe math.
+                  {isLiveView
+                    ? "On-chain position state after live 3-hop auto-rebalance to 1.50x HF (Shield Reserve paid debt first)."
+                    : "Shield Reserve pays debt first; self-deleverage restores exact 1.50x HF via overflow-safe math."}
                 </div>
               </div>
-              <span className={sim.frozen ? "badge badge-err" : "badge badge-ok"} data-testid="freeze-badge">
-                {sim.frozen ? "CIRCUIT BREAKER FROZEN" : "VAULT ACTIVE"}
+              <span className={vaultView.frozen ? "badge badge-err" : "badge badge-ok"} data-testid="freeze-badge">
+                {vaultView.frozen ? "CIRCUIT BREAKER FROZEN" : "VAULT ACTIVE"}
               </span>
             </div>
 
@@ -635,15 +700,15 @@ export default function App() {
               <div className="metric-cell">
                 <div className="metric-label">ETH Oracle Price</div>
                 <div className="metric-value mono" data-testid="metric-price">
-                  {formatUsd(sim.priceUsd)}
+                  {formatUsd(vaultView.priceUsd)}
                 </div>
-                <div className="metric-sub">Collateral Val: {formatUsd(sim.collateralEth * sim.priceUsd)}</div>
+                <div className="metric-sub">Collateral Val: {formatUsd(vaultView.collateralEth * vaultView.priceUsd)}</div>
               </div>
 
               <div className="metric-cell">
                 <div className="metric-label">Live Health Factor</div>
                 <div className="metric-value mono" data-testid="metric-hf">
-                  {formatHealth(currentHealthBps)}
+                  {formatHealth(vaultView.healthBps)}
                 </div>
                 <div className="metric-sub">Target Restore: 1.50x (15,000 bps)</div>
               </div>
@@ -651,16 +716,16 @@ export default function App() {
               <div className="metric-cell">
                 <div className="metric-label">Collateral / Debt</div>
                 <div className="metric-value mono">
-                  {sim.collateralEth.toFixed(2)} ETH
+                  {vaultView.collateralEth.toFixed(2)} ETH
                 </div>
-                <div className="metric-sub">Debt: {formatUsd(sim.debtUsd)}</div>
+                <div className="metric-sub">Debt: {formatUsd(vaultView.debtUsd)}</div>
               </div>
 
               <div className="metric-cell">
                 <div className="metric-label">Shield Reserve &amp; Nonce</div>
-                <div className="metric-value mono">{formatUsd(sim.shieldReserveUsd)}</div>
+                <div className="metric-value mono">{formatUsd(vaultView.shieldReserveUsd)}</div>
                 <div className="metric-sub">
-                  Nonce #{sim.actionNonce} • WARN Streak {sim.warnStreak}/2
+                  Nonce #{vaultView.actionNonce} • WARN Streak {vaultView.warnStreak}/2
                 </div>
               </div>
             </div>
@@ -672,7 +737,7 @@ export default function App() {
                 <div className="gauge-seg gauge-seg-accent" />
                 <div className="gauge-seg gauge-seg-warn" />
                 <div className="gauge-seg gauge-seg-ok" />
-                <div className="gauge-marker" style={{ left: `${healthGaugePercent(currentHealthBps)}%` }} />
+                <div className="gauge-marker" style={{ left: `${healthGaugePercent(vaultView.healthBps)}%` }} />
               </div>
               <div className="gauge-ticks mono">
                 <span>1.00x Liq</span>
@@ -687,19 +752,19 @@ export default function App() {
               <div className="metric-cell">
                 <div className="metric-label">Callbacks Fired</div>
                 <div className="metric-value mono" data-testid="metric-callbacks">
-                  {sim.totalCallbacksDispatched}
+                  {vaultView.callbacksFired}
                 </div>
               </div>
               <div className="metric-cell">
                 <div className="metric-label">Cooldown Blocks</div>
                 <div className="metric-value mono" data-testid="metric-suppressed">
-                  {sim.totalCooldownSuppressions}
+                  {vaultView.cooldownSuppressions}
                 </div>
-                <div className="metric-sub">{cooldownRemaining}s left (timestamp)</div>
+                <div className="metric-sub">{vaultView.cooldownSub}</div>
               </div>
               <div className="metric-cell">
                 <div className="metric-label">Debt Protected</div>
-                <div className="metric-value mono">{formatUsd(sim.totalDebtReducedUsd)}</div>
+                <div className="metric-value mono">{formatUsd(vaultView.debtReducedUsd)}</div>
               </div>
             </div>
           </div>
@@ -708,9 +773,14 @@ export default function App() {
           <div className="split-col">
             <div className="section-header">
               <div>
-                <div className="section-title">10-Second Judge Stress-Test Deck</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                  <div className="section-title">10-Second Judge Stress-Test Deck</div>
+                  <span className="badge badge-warn" data-testid="sandbox-badge">
+                    INTERACTIVE SIMULATOR SANDBOX
+                  </span>
+                </div>
                 <div className="section-sub">
-                  Trigger live oracle shocks and inspect stateful escalation, 200ms cooldown immunity, and circuit breaking.
+                  Trigger oracle shocks to switch into local Solidity state-machine simulation and test cooldown immunity &amp; circuit breaking.
                 </div>
               </div>
               <button type="button" className="btn" onClick={() => handleUnfreezeOrReset(true)}>

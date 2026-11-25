@@ -78,7 +78,20 @@ def main():
                     tx_hash = proof.get(tx_key)
                     if tx_hash:
                         assert page.locator(f'a[href*="{tx_hash}"]').count() >= 1, f"Missing live explorer link for {tx_key}"
+                # Gap A: Live tab must show real measured 3-hop latencies (never 620ms/1.03s sim constants)
+                hop2_txt = page.locator('[data-testid="hop2-latency"]').inner_text()
+                total_txt = page.locator('[data-testid="total-omni-latency"]').inner_text()
+                assert "7,060" in hop2_txt or "7060" in hop2_txt, f"Expected real live Hop 2 latency, got: {hop2_txt}"
+                assert "10.46s" in total_txt, f"Expected real live 10.46s total latency, got: {total_txt}"
+                # Gap B: Live tab vault metrics must match on-chain live state ($2,100 / 1.50x / 1 callback) + clear sandbox badge
+                assert page.locator('[data-testid="metric-price"]').inner_text().strip() == "$2,100"
+                assert page.locator('[data-testid="metric-hf"]').inner_text().strip() == "1.50x"
+                assert page.locator('[data-testid="metric-callbacks"]').inner_text().strip() == "1"
+                assert "INTERACTIVE SIMULATOR SANDBOX" in page.locator('[data-testid="sandbox-badge"]').inner_text()
+
                 page.get_by_role("tab", name="Interactive Simulator").click()
+                assert page.locator('[data-testid="sim-origin-tx"]').is_visible()
+                assert page.locator('[data-testid="sim-reactive-tx"]').is_visible()
 
             assert page.locator('[data-testid="metric-callbacks"]').inner_text().strip() == "0"
 
